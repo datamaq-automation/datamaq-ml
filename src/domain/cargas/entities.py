@@ -248,3 +248,28 @@ class DiagnosticoFirma:
     confianza: float
     distancia_promedio: float
     vecinos: list[VecinoCercano]
+
+
+@dataclass(frozen=True)
+class IntervaloMarcha:
+    """Intervalo continuo de operación efectiva de una máquina desagregada."""
+
+    inicio: datetime
+    fin: datetime
+    duracion_segundos: float
+    potencia_media_kw: float
+    reactiva_media_kvar: float
+    cos_phi_medio: float
+    energia_kwh: float
+
+
+@dataclass(frozen=True)
+class ResumenMaquinaMarcha:
+    """Consolidado de operación y horómetro de una máquina en la jornada."""
+
+    machine_id: str
+    nombre: str
+    horas_marcha: float
+    ciclos: int
+    energia_kwh: float
+    potencia_nominal_kw: float
