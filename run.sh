@@ -140,6 +140,15 @@ case "$COMMAND" in
         echo "🎓 Entrenando un clasificador con la verdad de un medidor simulado..."
         exec "$PYTHON_BIN" -m src.infrastructure.cli.supervisar_cargas "${ARGS[@]}"
         ;;
+    disaggregate)
+        ensure_venv
+        ARGS=("${@:2}")
+        if resolver_modo "${ARGS[0]:-}"; then
+            ARGS=("${ARGS[@]:1}")
+        fi
+        echo "⚙️ Desagregando cargas y atribuyendo horómetros (modo batch diario)..."
+        exec "$PYTHON_BIN" -m src.infrastructure.cli.desagregar_cargas "${ARGS[@]}"
+        ;;
     test)
         ensure_venv
         echo "🧪 Ejecutando suite de pruebas con pytest..."
@@ -192,6 +201,7 @@ case "$COMMAND" in
         echo "  simulate  : Genera data/input/sintetico.csv y su verdad en data/verdad/ (cargas conocidas)"
         echo "  evaluate  : Compara lo identificado con la verdad de un medidor simulado (sensibilidad, precisión)"
         echo "  supervise : Aprende las cargas de un medidor simulado con un árbol de decisión (supervisado)"
+        echo "  disaggregate : Desagrega eventos y calcula horas de marcha efectivas por máquina (batch diario)"
         echo "  test      : Ejecuta la suite de pruebas unitarias y de arquitectura con pytest"
         echo "  gauntlet  : Ejecuta las 11 reglas del Guantelete de Restricciones (test_architecture.py)"
         echo "  audit     : Ejecuta auditorías de código muerto y componentes Dios"
