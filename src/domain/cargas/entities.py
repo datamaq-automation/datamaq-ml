@@ -1,5 +1,6 @@
 """src/domain/cargas/entities.py — Entidades del dominio de identificación de cargas (NILM)."""
 
+import math
 from dataclasses import dataclass
 from datetime import datetime
 
@@ -10,6 +11,7 @@ class Medicion:
 
     instante: datetime
     potencia_kw: float
+    reactiva_kvar: float | None = None
 
 
 @dataclass(frozen=True)
@@ -18,10 +20,18 @@ class EventoCarga:
 
     instante: datetime
     delta_kw: float
+    delta_kvar: float = 0.0
 
     @property
     def es_encendido(self) -> bool:
         return self.delta_kw > 0
+
+    @property
+    def factor_potencia_evento(self) -> float | None:
+        """Factor de desplazamiento cos(phi) estimado a partir de |delta_kw| y |delta_kvar|."""
+        if self.delta_kw == 0:
+            return None
+        return math.cos(math.atan2(abs(self.delta_kvar), abs(self.delta_kw)))
 
 
 @dataclass(frozen=True)
@@ -32,6 +42,8 @@ class Carga:
     encendidos: int
     apagados: int
     dispersion_kw: float = 0.0
+    reactiva_tipica_kvar: float = 0.0
+    cos_phi_estimado: float | None = None
 
     @property
     def ciclos(self) -> int:

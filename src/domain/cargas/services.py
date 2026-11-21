@@ -1,5 +1,6 @@
 """src/domain/cargas/services.py — Reglas de negocio puras para detectar y resumir cargas."""
 
+import math
 from collections import defaultdict
 from itertools import pairwise
 from statistics import pstdev
@@ -21,8 +22,15 @@ def detectar_eventos(mediciones: list[Medicion], umbral_kw: float) -> list[Event
     eventos: list[EventoCarga] = []
     for previa, actual in pairwise(ordenadas):
         delta = actual.potencia_kw - previa.potencia_kw
+        delta_q = (
+            actual.reactiva_kvar - previa.reactiva_kvar
+            if actual.reactiva_kvar is not None and previa.reactiva_kvar is not None
+            else 0.0
+        )
         if abs(delta) >= umbral_kw:
-            eventos.append(EventoCarga(instante=actual.instante, delta_kw=delta))
+            eventos.append(
+                EventoCarga(instante=actual.instante, delta_kw=delta, delta_kvar=delta_q)
+            )
     return eventos
 
 
@@ -121,13 +129,23 @@ def resumir_cargas(eventos: list[EventoCarga], etiquetas: list[int]) -> list[Car
     for evento, etiqueta in zip(eventos, etiquetas, strict=True):
         if etiqueta >= 0:
             grupos[etiqueta].append(evento)
-    cargas = [
-        Carga(
-            potencia_tipica_kw=round(sum(abs(e.delta_kw) for e in grupo) / len(grupo), 1),
-            encendidos=sum(e.es_encendido for e in grupo),
-            apagados=sum(not e.es_encendido for e in grupo),
-            dispersion_kw=round(pstdev(abs(e.delta_kw) for e in grupo), 1),
+    cargas = []
+    for grupo in grupos.values():
+        potencia_tipica = round(sum(abs(e.delta_kw) for e in grupo) / len(grupo), 1)
+        reactiva_tipica = round(sum(abs(e.delta_kvar) for e in grupo) / len(grupo), 1)
+        cos_phi = (
+            round(math.cos(math.atan2(reactiva_tipica, potencia_tipica)), 3)
+            if potencia_tipica > 0
+            else None
         )
-        for grupo in grupos.values()
-    ]
+        cargas.append(
+            Carga(
+                potencia_tipica_kw=potencia_tipica,
+                encendidos=sum(e.es_encendido for e in grupo),
+                apagados=sum(not e.es_encendido for e in grupo),
+                dispersion_kw=round(pstdev(abs(e.delta_kw) for e in grupo), 1),
+                reactiva_tipica_kvar=reactiva_tipica,
+                cos_phi_estimado=cos_phi,
+            )
+        )
     return sorted(cargas, key=lambda c: c.potencia_tipica_kw, reverse=True)
