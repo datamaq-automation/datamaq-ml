@@ -39,3 +39,14 @@ data/models/*
 # Cache de mediciones descargadas desde VPS (modo prod)
 data/prod-cache/*
 !data/prod-cache/.gitkeep
+
+# Mediciones reales de planta y symlinks a ellas (no se versionan: ver README).
+# Solo el dataset sintético (generado por `./run.sh simulate`) queda versionado.
+data/input/*
+!data/input/.gitkeep
+!data/input/sintetico.csv
+data/verdad/*
+!data/verdad/sintetico.csv
+
+# Logs de ejecución
+*.log
