@@ -10,12 +10,21 @@ class DbscanAgrupador:
     """Implementa AgrupadorEventos: encendidos y apagados de la misma carga caen en el mismo grupo."""
 
     def agrupar(self, eventos: list[EventoCarga], radio_kw: float, min_eventos: int) -> list[int]:
+        if not eventos:
+            return []
+
+        tiene_reactiva = any(e.delta_kvar != 0.0 for e in eventos)
+        if tiene_reactiva:
+            muestras = [[abs(e.delta_kw), abs(e.delta_kvar)] for e in eventos]
+        else:
+            muestras = [[abs(e.delta_kw)] for e in eventos]
+
         modelo = DBSCAN(eps=radio_kw, min_samples=min_eventos)
-        magnitudes = [[abs(e.delta_kw)] for e in eventos]  # sklearn espera una fila por muestra
-        etiquetas = [int(e) for e in modelo.fit_predict(magnitudes)]
+        etiquetas = [int(e) for e in modelo.fit_predict(muestras)]
         grupos, ruido = len(set(etiquetas) - {-1}), etiquetas.count(-1)
         logger.info(
-            "DBSCAN (eps=%s kW, min=%s): %d %s",
+            "DBSCAN (%s, eps=%s, min=%s): %d %s",
+            "2D P-Q" if tiene_reactiva else "1D P",
             radio_kw,
             min_eventos,
             grupos,

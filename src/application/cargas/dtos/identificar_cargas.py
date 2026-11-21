@@ -32,6 +32,8 @@ class CargaResponse(BaseModel):
     dispersion_kw: float = Field(
         default=0.0, description="Desvío estándar de |ΔP| de los eventos de la carga, en kW"
     )
+    reactiva_tipica_kvar: float = 0.0
+    cos_phi_estimado: float | None = None
 
     @computed_field
     def potencia_kw(self) -> float:

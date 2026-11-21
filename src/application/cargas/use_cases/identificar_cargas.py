@@ -92,6 +92,8 @@ class IdentificarCargasUseCase:
                     ciclos_por_dia=round(c.ciclos / dias, 1) if dias >= 1 else None,
                     on_off=c.es_on_off(self._balance_minimo),
                     dispersion_kw=c.dispersion_kw,
+                    reactiva_tipica_kvar=c.reactiva_tipica_kvar,
+                    cos_phi_estimado=c.cos_phi_estimado,
                 )
                 for c in cargas
             ],
