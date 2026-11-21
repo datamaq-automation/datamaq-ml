@@ -2,7 +2,7 @@
 
 from datetime import datetime
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, computed_field, model_validator
 
 
 class IdentificarCargasRequest(BaseModel):
@@ -32,6 +32,11 @@ class CargaResponse(BaseModel):
     dispersion_kw: float = Field(
         default=0.0, description="Desvío estándar de |ΔP| de los eventos de la carga, en kW"
     )
+
+    @computed_field
+    def potencia_kw(self) -> float:
+        """Alias para compatibilidad con consumidores externos (datamaq-telemetry)."""
+        return self.potencia_tipica_kw
 
 
 class PuntoResponse(BaseModel):
