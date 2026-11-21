@@ -1,8 +1,8 @@
 """src/infrastructure/cli/desagregar_cargas.py — Ejecución batch de desagregación de cargas y cálculo de horómetros.
 
-Uso:
-    ./run.sh disaggregate Trafo_arriba --fecha 2026-09-20 --firmas config/firmas.json
-    ./run.sh disaggregate Trafo_arriba --fecha 2026-09-20 --potencia 91.0 --nombre "Compresor 1"
+Uso (el nombre del medidor es exacto, con espacio: "Trafo arriba"):
+    ./run.sh disaggregate "Trafo arriba" --fecha 2026-09-20 --firmas config/firmas.json
+    ./run.sh disaggregate "Trafo arriba" --fecha 2026-09-20 --potencia 91.0 --nombre "Compresor 1"
 """
 
 import argparse
