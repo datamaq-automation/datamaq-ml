@@ -42,4 +42,6 @@ def test_contrato_de_cada_carga() -> None:
         "ciclos_por_dia",
         "on_off",
         "dispersion_kw",
+        "reactiva_tipica_kvar",
+        "cos_phi_estimado",
     }

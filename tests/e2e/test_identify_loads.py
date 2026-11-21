@@ -48,6 +48,8 @@ def test_identify_loads_devuelve_cargas() -> None:
                 "ciclos_por_dia": None,
                 "on_off": True,
                 "dispersion_kw": 0.0,
+                "reactiva_tipica_kvar": 0.0,
+                "cos_phi_estimado": 1.0,
                 "potencia_kw": 90.0,
             }
         ]
