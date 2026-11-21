@@ -50,12 +50,18 @@ chmod 600 ~/.ssh/authorized_keys
 
 ```
 Host vps
-    Hostname vps
-    User root
+    Hostname <IP-o-nombre-tailscale-de-la-VPS>
+    User <usuario-de-servicio-no-root>
     IdentityFile ~/.ssh/id_ed25519
-    StrictHostKeyChecking no
+    StrictHostKeyChecking accept-new
     BatchMode yes
 ```
+
+> `accept-new` registra la huella de la VPS en la primera conexión y
+> rechaza cualquier cambio posterior. Verificá la huella con el
+> administrador antes de la primera conexión. No uses `StrictHostKeyChecking no`:
+> desactiva la verificación y deja expuesta la conexión a un servidor falso.
+> Tampoco uses `root` como usuario: el acceso debe ser de un usuario de servicio.
 
 **Validar acceso:**
 
@@ -66,12 +72,12 @@ ssh -o BatchMode=yes -o ConnectTimeout=5 vps true
 
 ### 3. MySQL en la VPS
 
-Verificar que root puede acceder a MySQL sin contraseña (típico en desarrollo):
+Verificar que el usuario de servicio puede leer la telemetría. La credencial de MySQL la gestiona el administrador de la VPS y **no** va en este repo:
 
 ```bash
 ssh vps "mysql --batch --skip-column-names -e 'SELECT d.name, t.recorded_at, t.total_active_power FROM datamaq_telemetry.telemetry_instantaneous t JOIN datamaq_telemetry.devices d ON d.id = t.device_id LIMIT 1'"
 
-# Debería devolver: Trafo arriba    2026-10-03 12:00:00    92000
+# Debería devolver una fila: <nombre-medidor>    <fecha-hora>    <potencia-en-W>
 ```
 
 ---
@@ -190,13 +196,13 @@ curl http://localhost:8000/api/v1/mediciones/fuente | jq .
    chmod 644 ~/.ssh/id_ed25519.pub
    ```
 
-### ❌ "SSH/MySQL error: Access denied for user 'root'"
+### ❌ "SSH/MySQL error: Access denied for user '<usuario>'"
 
-El usuario root no tiene acceso a MySQL sin contraseña en la VPS.
+El usuario de servicio no tiene permiso de lectura sobre `datamaq_telemetry`.
 
-**Solución:** Contactar a administrador VPS para:
-- Verificar que `skip-grant-tables` está habilitado, O
-- Crear usuario sin contraseña específicamente para este script
+**Solución:** Contactar al administrador de la VPS para que cree (o revise) un usuario
+de **solo lectura** sobre `datamaq_telemetry`, específico para este proceso. No se resuelve
+deshabilitando la autenticación de MySQL ni usando `root`.
 
 ### ❌ "SSH timeout después de 30s"
 
@@ -260,7 +266,7 @@ tail -f logs/energy-ml.log | grep -i "ssh\|descarga\|mediciones"
 
 | Aspecto | Dev | Prod |
 |---------|-----|------|
-| **Fuente** | `data/input/*.csv` (versionado) | MySQL en VPS (actualizado) |
+| **Fuente** | `data/input/*.csv` (local, no versionado; solo `sintetico.csv` está en el repo) | MySQL en VPS (actualizado) |
 | **Startup** | ~1s | ~3s (descarga SSH) |
 | **Fail-fast** | No (inicia sin datos) | Sí (valida SSH, sale si falla) |
 | **Cache** | N/A | `data/prod-cache/` (persiste) |
@@ -289,10 +295,10 @@ After=network.target tailscale.service
 
 [Service]
 Type=simple
-User=energia
-WorkingDirectory=/home/energia/energy-ml
+User=<usuario-de-servicio-no-root>
+WorkingDirectory=<ruta-absoluta-al-repo>
 Environment="MEDICIONES_SOURCE=ssh"
-ExecStart=/home/energia/energy-ml/run.sh start prod
+ExecStart=<ruta-absoluta-al-repo>/run.sh start prod
 Restart=on-failure
 RestartSec=10
 
