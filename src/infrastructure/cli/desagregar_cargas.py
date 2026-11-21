@@ -46,7 +46,7 @@ def _cargar_firmas(
     return firmas
 
 
-def main(args: list[str] | None = None) -> int:
+def _construir_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="Desagrega eventos y calcula horas de marcha efectivas por máquina para un día cerrado."
     )
@@ -87,7 +87,11 @@ def main(args: list[str] | None = None) -> int:
         default=None,
         help="ID de la máquina para firma rápida por CLI",
     )
+    return parser
 
+
+def main(args: list[str] | None = None) -> int:
+    parser = _construir_parser()
     parsed = parser.parse_args(args)
     settings = get_settings()
     repo = get_mediciones(settings)
@@ -111,19 +115,14 @@ def main(args: list[str] | None = None) -> int:
         parsed.machine_id,
     )
 
-    if not firmas:
-        logger.warning(
-            "No se configuraron firmas de máquinas confirmadas. Especifique --firmas o --potencia."
+    resultado = AtribuirCargasBatchUseCase().ejecutar(
+        AtribuirCargasBatchRequestDTO(
+            dispositivo_id=parsed.medidor,
+            fecha=parsed.fecha,
+            mediciones=mediciones,
+            firmas=firmas,
         )
-
-    use_case = AtribuirCargasBatchUseCase()
-    request = AtribuirCargasBatchRequestDTO(
-        dispositivo_id=parsed.medidor,
-        fecha=parsed.fecha,
-        mediciones=mediciones,
-        firmas=firmas,
     )
-    resultado = use_case.ejecutar(request)
 
     logger.info("Desagregación completada. Intervalos asignados: %d", len(resultado.intervalos))
     for res in resultado.resumen_maquinas:
@@ -135,7 +134,6 @@ def main(args: list[str] | None = None) -> int:
             res.ciclos,
             res.energia_kwh,
         )
-
     return 0
 
 
