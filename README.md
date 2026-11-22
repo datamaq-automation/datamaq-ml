@@ -217,6 +217,27 @@ Límites: sin reactiva (solo P) no se separan cargas de igual potencia activa; c
 los escalones menores a un paso de muestreo no se ven; sin verdad de terreno no se mide la exactitud,
 solo la consistencia.
 
+## Limitaciones físicas: reactiva neta y banco de capacitores
+
+Los medidores están aguas abajo de los transformadores, con motores y bancos de capacitores en paralelo.
+Eso condiciona cómo se usa la reactiva:
+
+- **La Q que mide el medidor es neta**: Q_medida = Q_cargas − Q_banco. El arranque de un motor no deja una ΔQ
+  limpia si el banco cambia en el mismo intervalo.
+- **Conmutaciones de banco**: un cambio de escalón da ΔP ≈ 0 y ΔQ grande. No es una carga: se detecta
+  (`src/domain/cargas/banco_capacitores.py`), se cuenta y se excluye de la atribución. Un escalón de carga que cae
+  en la misma ventana que una conmutación tiene su ΔQ marcada como no confiable: se empareja solo con ΔP.
+- **Banco fijo o automático**: no está confirmado en planta. Si el banco es fijo, aporta un desplazamiento constante
+  de Q y la ΔQ de un motor es limpia. Si es automático, aparecen conmutaciones frecuentes. La validación
+  (`scripts/validar_dia_real.py`) reporta `eventos_banco_dp_bajo_dq_alto` por día: pocos o ninguno apoya banco fijo.
+- **Pesos de P y Q configurables** (`ParametrosBancoDTO`): los defaults son iguales (1 y 1), que es lo que corre hoy.
+  El default de ΔP sobre ΔQ no se fija todavía; se decide con datos reales.
+- **Un dato cada 5 minutos**: los arranques de varios motores y las conmutaciones de banco pueden caer en el mismo
+  intervalo de muestreo. Una muestra no distingue el orden de los eventos dentro de ese intervalo.
+
+Con los sintéticos (`./run.sh simulate --banco fijo|automatico --ruido 0.1`) se prueba la lógica. Los datos reales con
+reactiva todavía no están disponibles para este análisis.
+
 ## Uso docente
 
 Material para el módulo «Procesamiento de Aprendizaje Automático»: `docs/material-ensenanza/` (índice en su

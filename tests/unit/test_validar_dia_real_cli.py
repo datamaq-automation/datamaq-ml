@@ -101,3 +101,26 @@ def test_csv_del_dia_ausente_falla_con_codigo_3(dia_sintetico, tmp_path: Path) -
         ]
     )
     assert ret == CODIGO_DATOS
+
+
+def test_la_salida_incluye_los_indicadores_de_banco(dia_sintetico, tmp_path: Path) -> None:
+    """El JSON de la validación trae el indicador que decide la hipótesis del banco fijo."""
+    csv, firmas = dia_sintetico
+    salida = tmp_path / "banco.json"
+    ret = main(
+        [
+            "--archivo",
+            str(csv),
+            "--firmas",
+            str(firmas),
+            "--fecha",
+            "2026-09-20",
+            "--salida-json",
+            str(salida),
+        ]
+    )
+    assert ret == CODIGO_OK
+    datos = json.loads(salida.read_text(encoding="utf-8"))
+    assert "eventos_banco_dp_bajo_dq_alto" in datos
+    assert "energia_atribuida_solo_p_kwh" in datos
+    assert "diferencia_pct_p_vs_pq" in datos

@@ -5,11 +5,16 @@ investigación, §5): claves exactas, sin campos extra. Los instantes de la sali
 (`Z`). Internamente, los instantes de las mediciones y de la ventana son UTC sin zona.
 """
 
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from typing import Literal
 
 from pydantic import BaseModel, Field
 
+from src.domain.cargas.banco_capacitores import (
+    TOLERANCIA_COINCIDENCIA,
+    UMBRAL_P_BANCO_KW,
+    UMBRAL_Q_BANCO_KVAR,
+)
 from src.domain.cargas.entities import Medicion
 
 CONTRATO_INTERVALOS = "nilm.intervalos.v1"
@@ -32,6 +37,20 @@ class FirmaConfirmadaDTO(BaseModel):
     load_id: str | None = None
 
 
+class ParametrosBancoDTO(BaseModel):
+    """Cómo tratar las conmutaciones de banco y cuánto pesa la reactiva en el emparejamiento.
+
+    Los pesos por defecto son iguales (1 y 1), que es lo que corre hoy. El default de ΔP sobre ΔQ no se fija
+    todavía: se decide con datos reales (adenda del 2026-11-22). Con peso_q = 0 el emparejamiento usa solo P.
+    """
+
+    umbral_p_kw: float = UMBRAL_P_BANCO_KW
+    umbral_q_kvar: float = UMBRAL_Q_BANCO_KVAR
+    tolerancia: timedelta = TOLERANCIA_COINCIDENCIA
+    peso_p: float = Field(default=1.0, ge=0.0)
+    peso_q: float = Field(default=1.0, ge=0.0)
+
+
 class AtribuirCargasBatchRequestDTO(BaseModel):
     """Petición de desagregación de un día cerrado de un medidor.
 
@@ -48,6 +67,7 @@ class AtribuirCargasBatchRequestDTO(BaseModel):
     generado_en_utc: datetime
     mediciones: list[Medicion] = Field(default_factory=list)
     firmas: list[FirmaConfirmadaDTO] = Field(default_factory=list)
+    parametros_banco: ParametrosBancoDTO = Field(default_factory=ParametrosBancoDTO)
 
 
 class IntervaloMarchaDTO(BaseModel):
