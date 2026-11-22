@@ -76,7 +76,7 @@ documenta el formato: `--device-id <uuid-del-medidor>`.
 |---|---|
 | `0` | Terminó. Puede haber advertencias (sin cargas, eventos sin grupo, sin escalones separables): aparecen en el resumen y no cambian el código. |
 | `2` | Argumentos inválidos: `--hasta` no es posterior a `--desde`, o el medidor pedido no existe en la carpeta. |
-| `3` | Datos faltantes: no hay CSV de mediciones en `MEDICIONES_CSV_DIR`. |
+| `3` | Datos de entrada ausentes o inválidos: no hay CSV de mediciones en `MEDICIONES_CSV_DIR`, o el CSV no se puede leer (una potencia que no es número, una columna que falta). |
 
 Los scripts que corren `train` con `set -e` (como `scripts/validacion_privada.sh`) se detienen ante un `2` o un `3`.
 
