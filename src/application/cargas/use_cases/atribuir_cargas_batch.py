@@ -22,6 +22,25 @@ def _utc(instante: datetime) -> datetime:
     return instante.replace(tzinfo=UTC)
 
 
+def umbral_minimo_kw(firmas: list[FirmaConfirmadaDTO]) -> float:
+    """Umbral |ΔP| mínimo para detectar escalones: el más bajo que alguna firma puede necesitar."""
+    return min(
+        max(f.umbral_marcha_kw, f.potencia_nominal_kw - f.tolerancia_kw, 0.1) for f in firmas
+    )
+
+
+def _cae_bajo_base(
+    mediciones: list[Medicion], indice_inicio: int, indice_evento: int, tolerancia_kw: float
+) -> bool:
+    """¿La potencia en el evento quedó por debajo de la base previa al encendido, menos la tolerancia?
+
+    Si pasa, el escalón no es de esta máquina: se apagó otra carga (no catalogada) que formaba parte
+    de la base. El intervalo no puede seguir atribuyéndose a la máquina después de ese escalón.
+    """
+    base = mediciones[indice_inicio - 1].potencia_kw
+    return mediciones[indice_evento].potencia_kw < base - tolerancia_kw
+
+
 def _confianza(distancia_kw: float, tolerancia_kw: float) -> float:
     """1 si el salto coincide exacto con la potencia nominal; 0 si cae en el borde de la tolerancia."""
     if tolerancia_kw <= 0:
@@ -56,11 +75,7 @@ class AtribuirCargasBatchUseCase:
         }
 
         if request.firmas and len(mediciones) >= 2:
-            umbral_minimo = min(
-                max(f.umbral_marcha_kw, f.potencia_nominal_kw - f.tolerancia_kw, 0.1)
-                for f in request.firmas
-            )
-            eventos = detectar_eventos(mediciones, umbral_kw=umbral_minimo)
+            eventos = detectar_eventos(mediciones, umbral_kw=umbral_minimo_kw(request.firmas))
             for machine_id, intervalo in self._emparejar_eventos(request, mediciones, eventos):
                 intervalos_por_firma[machine_id].append(intervalo)
 
@@ -104,6 +119,12 @@ class AtribuirCargasBatchUseCase:
             indice = bisect_left(instantes, ev.instante)
             encontrada = self._buscar_firma_compatible(ev, request.firmas)
             if encontrada is None:
+                if not ev.es_encendido:
+                    cerrados.extend(
+                        self._cortar_por_escalon_ajeno(
+                            mediciones, indice, firmas_por_id, encendidos_activos
+                        )
+                    )
                 continue
             firma, distancia = encontrada
             confianza = _confianza(distancia, firma.tolerancia_kw)
@@ -126,6 +147,29 @@ class AtribuirCargasBatchUseCase:
             cerrados.append((machine_id, intervalo))
 
         return cerrados
+
+    def _cortar_por_escalon_ajeno(
+        self,
+        mediciones: list[Medicion],
+        indice: int,
+        firmas_por_id: dict[str, FirmaConfirmadaDTO],
+        encendidos_activos: dict[str, tuple[int, float]],
+    ) -> list[tuple[str, IntervaloMarchaDTO]]:
+        """Cierra en `indice` las máquinas en marcha cuya base cayó por un apagado que no es de ninguna firma.
+
+        Un apagado no catalogado que deja la potencia bajo la base de una máquina en marcha significa que
+        se apagó otra carga que formaba parte de esa base. La máquina no puede seguir acumulando energía
+        más allá de ese escalón. Se quita de `encendidos_activos` para que su apagado posterior no la cierre.
+        """
+        cortados: list[tuple[str, IntervaloMarchaDTO]] = []
+        for machine_id, (inicio, conf_on) in list(encendidos_activos.items()):
+            firma = firmas_por_id[machine_id]
+            if _cae_bajo_base(mediciones, inicio, indice, firma.tolerancia_kw):
+                del encendidos_activos[machine_id]
+                cortados.append(
+                    (machine_id, self._crear_intervalo(firma, mediciones, inicio, indice, conf_on))
+                )
+        return cortados
 
     def _buscar_firma_compatible(
         self,

@@ -191,6 +191,34 @@ Formato acordado con datamaq-telemetry (informe de la investigación de la Fase 
 - **No se conecta** a MySQL ni al VPS. Los CSV diarios los genera un script de telemetry.
 - **No proyecta** a `machine_availability_events` (horómetros de máquina): es un paso posterior, cuando una carga se confirme como máquina.
 
+## Validación de un día sin verdad de terreno
+
+`scripts/validar_dia_real.py` corre la desagregación sobre un día y escribe métricas **agregadas**
+(conteos, energías, porcentajes, horas por carga). No escribe filas de mediciones, así que su salida
+es segura de compartir aunque el CSV de entrada no lo sea.
+
+```bash
+./.venv/bin/python scripts/validar_dia_real.py --archivo <CSV diario> --firmas <catálogo.json> \
+    --fecha 2026-09-20 --salida-json <ruta.json>
+```
+
+Métricas principales:
+
+| Métrica | Qué mide |
+|---|---|
+| `eventos`, `encendidos`, `apagados` | Escalones de potencia detectados con el umbral del catálogo |
+| `eventos_atribuidos`, `eventos_sin_atribuir` | Escalones explicados por una firma y los que no |
+| `intervalos_cerrados` / `_abiertos` / `_cortados_por_caida` | Cómo terminó cada intervalo: por apagado de la misma firma, al final del día, o por un escalón ajeno |
+| `energia_medida_kwh` | Integral de P sobre el día (trapecios) |
+| `energia_atribuida_kwh`, `pct_energia_atribuida` | Energía de las cargas del catálogo y su parte del total |
+| `energia_atribuida_excede_medida` | Control de plausibilidad: debe ser `false` |
+| `solapamientos`, `horas_solapadas` | Pares de intervalos de cargas distintas que se superponen |
+| `huecos_mayores_a_5_min` | Muestreo irregular: afecta la integral |
+
+Límites: sin reactiva (solo P) no se separan cargas de igual potencia activa; con muestras cada 5 min,
+los escalones menores a un paso de muestreo no se ven; sin verdad de terreno no se mide la exactitud,
+solo la consistencia.
+
 ## Configuración
 
 Las variables están centralizadas en `src/infrastructure/settings/config.py` con valores por defecto.
