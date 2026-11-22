@@ -83,7 +83,9 @@ def _umbral_usado(firmas: list[FirmaConfirmadaDTO], umbral_kw: float | None) -> 
 
 
 def _eventos(
-    ventana: list[Medicion], firmas: list[FirmaConfirmadaDTO], umbral_kw: float | None
+    ventana: list[Medicion],
+    firmas: list[FirmaConfirmadaDTO],
+    umbral_kw: float | None = None,
 ) -> list[EventoCarga]:
     if len(ventana) < 2:
         return []
