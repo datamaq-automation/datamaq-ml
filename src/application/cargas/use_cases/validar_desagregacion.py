@@ -12,6 +12,7 @@ from src.application.cargas.dtos.desagregar_cargas import (
     AtribuirCargasBatchResponseDTO,
     FirmaConfirmadaDTO,
     IntervaloMarchaDTO,
+    ParametrosBancoDTO,
 )
 from src.application.cargas.dtos.validar_desagregacion import (
     CargaValidacionDTO,
@@ -20,6 +21,10 @@ from src.application.cargas.dtos.validar_desagregacion import (
 from src.application.cargas.use_cases.atribuir_cargas_batch import (
     AtribuirCargasBatchUseCase,
     umbral_minimo_kw,
+)
+from src.domain.cargas.banco_capacitores import (
+    coincide_con_banco,
+    detectar_conmutaciones,
 )
 from src.domain.cargas.entities import EventoCarga, Medicion
 from src.domain.cargas.services import detectar_eventos, integrar_trapecios
@@ -52,6 +57,7 @@ def _atribuir(
     firmas: list[FirmaConfirmadaDTO],
     desde: datetime,
     hasta: datetime,
+    parametros: ParametrosBancoDTO | None = None,
 ) -> AtribuirCargasBatchResponseDTO:
     return AtribuirCargasBatchUseCase().ejecutar(
         AtribuirCargasBatchRequestDTO(
@@ -63,6 +69,7 @@ def _atribuir(
             generado_en_utc=desde,
             mediciones=ventana,
             firmas=firmas,
+            parametros_banco=parametros or ParametrosBancoDTO(),
         )
     )
 
@@ -147,8 +154,29 @@ def _solapamientos(clasificados: list[Clasificado]) -> tuple[int, float]:
     return pares, horas
 
 
+def _banco(
+    ventana: list[Medicion],
+    eventos: list[EventoCarga],
+    respuesta_solo_p: AtribuirCargasBatchResponseDTO,
+    energia_atribuida: float,
+) -> tuple[int, int, float, float]:
+    """(conmutaciones de banco, escalones de carga contaminados, energía solo con P, % de diferencia P vs P y Q)."""
+    params = ParametrosBancoDTO()
+    conmutaciones = detectar_conmutaciones(ventana, params.umbral_p_kw, params.umbral_q_kvar)
+    contaminados = sum(
+        1 for e in eventos if coincide_con_banco(e.instante, conmutaciones, params.tolerancia)
+    )
+    energia_solo_p = sum(
+        it.energia_kwh_medida for c in respuesta_solo_p.cargas for it in c.intervalos
+    )
+    diferencia = (
+        100.0 * (energia_atribuida - energia_solo_p) / energia_solo_p if energia_solo_p else 0.0
+    )
+    return len(conmutaciones), contaminados, round(energia_solo_p, 3), round(diferencia, 1)
+
+
 class ValidarDesagregacionDiaUseCase:
-    """Calcula las métricas de un día: eventos, atribución, energía, solapamientos y huecos."""
+    """Calcula las métricas de un día: eventos, atribución, energía, solapamientos, huecos y banco."""
 
     def ejecutar(
         self,
@@ -160,6 +188,7 @@ class ValidarDesagregacionDiaUseCase:
         ventana = _ventana(mediciones, desde, hasta)
         eventos = _eventos(ventana, firmas)
         respuesta = _atribuir(ventana, firmas, desde, hasta)
+        respuesta_solo_p = _atribuir(ventana, firmas, desde, hasta, ParametrosBancoDTO(peso_q=0.0))
         ultimo = ventana[-1].instante if ventana else None
         clasificados = _clasificar(respuesta, eventos, firmas, ultimo)
 
@@ -176,6 +205,9 @@ class ValidarDesagregacionDiaUseCase:
         energia_atribuida = sum(it.energia_kwh_medida for _, it, _ in clasificados)
         solapamientos, horas_solapadas = _solapamientos(clasificados)
         umbral = umbral_minimo_kw(firmas) if firmas else 0.1
+        banco_conmutaciones, banco_contaminados, energia_solo_p, diferencia = _banco(
+            ventana, eventos, respuesta_solo_p, energia_atribuida
+        )
 
         return MetricasDiaDTO(
             mediciones=len(ventana),
@@ -195,6 +227,10 @@ class ValidarDesagregacionDiaUseCase:
             if energia_medida > 0
             else 0.0,
             energia_atribuida_excede_medida=energia_atribuida > energia_medida,
+            eventos_banco_dp_bajo_dq_alto=banco_conmutaciones,
+            eventos_carga_con_banco=banco_contaminados,
+            energia_atribuida_solo_p_kwh=energia_solo_p,
+            diferencia_pct_p_vs_pq=diferencia,
             solapamientos=solapamientos,
             horas_solapadas=round(horas_solapadas, 4),
             cargas=_resumen_cargas(respuesta, clasificados),
