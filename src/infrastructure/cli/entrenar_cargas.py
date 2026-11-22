@@ -20,6 +20,12 @@ from src.application.cargas.dtos.identificar_cargas import (
 )
 from src.application.cargas.use_cases.identificar_cargas import IdentificarCargasUseCase
 from src.domain.cargas.entities import Carga
+from src.infrastructure.cli.presentacion import (
+    error_que_ensena,
+    imprimir_error,
+    lineas_resumen_entrenamiento,
+    mostrar,
+)
 from src.infrastructure.csv.carga_repository import CsvCargaRepository
 from src.infrastructure.mediciones_factory import get_mediciones
 from src.infrastructure.settings.config import describir_nilm, get_settings
@@ -158,14 +164,24 @@ def main() -> None:
     )
     disponibles = repositorio.medidores()
     if not disponibles:
-        logger.error("No hay CSV en %s: corré primero la exportación de datos", entrada)
+        imprimir_error(
+            error_que_ensena(
+                f"No encuentro mediciones en {entrada}.",
+                "el CLI lee un CSV por medidor en esa carpeta y no hay ninguno.",
+                "generá datos de prueba con ./run.sh simulate, o copiá el CSV del medidor a esa "
+                "carpeta.",
+                "README.md, sección de datos",
+            )
+        )
         return
     desconocidos = [m for m in args.medidores if m not in disponibles]
     if desconocidos:
-        logger.error(
-            "Medidores desconocidos: %s (disponibles: %s)",
-            ", ".join(desconocidos),
-            ", ".join(disponibles),
+        imprimir_error(
+            error_que_ensena(
+                f"Medidor desconocido: {', '.join(desconocidos)}.",
+                "el nombre tiene que coincidir con un CSV de la carpeta, sin la extensión .csv.",
+                f"usá uno de estos: {', '.join(disponibles)}.",
+            )
         )
         return
     medidores = args.medidores or disponibles
@@ -183,6 +199,7 @@ def main() -> None:
         )
         resultados.guardar(medidor, [_carga(c) for c in r.cargas])
         resultados.guardar_entrenamiento(medidor, _resumen_entrenamiento(r))
+        mostrar(lineas_resumen_entrenamiento(r, medidor))
 
 
 if __name__ == "__main__":
