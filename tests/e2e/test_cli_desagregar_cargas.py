@@ -14,7 +14,7 @@ from src.infrastructure.cli.desagregar_cargas import (
 from src.infrastructure.cli.desagregar_cargas import main as desagregar
 from src.infrastructure.settings.config import get_settings
 
-DEVICE_ID = "a01b1642-ed29-4c3e-a793-f57de09504f8"
+DEVICE_ID = "00000000-0000-4000-8000-000000000001"
 
 
 @pytest.fixture

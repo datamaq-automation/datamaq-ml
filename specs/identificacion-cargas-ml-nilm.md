@@ -55,10 +55,8 @@ Cuatro capas, un commit por capa (ver `git log` de la rama):
 
 **Códigos de salida:** `0` ok · `2` argumentos o catálogo inválidos · `3` CSV del día ausente o inválido.
 
-**Mapeo de medidores (configurable por `--device-id`, no hardcodeado):**
+**Mapeo de medidores:** cada medidor se identifica por `--device-id`; el mapeo etiqueta → device-id vive fuera del repo.
 
-- `Trafo arriba` → `a01b1642-ed29-4c3e-a793-f57de09504f8`
-- `Trafo abajo` → `ce7e5a9a-c5e8-4936-be9a-a2057ccf8b4c`
 
 ## 4. Criterios de aceptación y evidencia
 

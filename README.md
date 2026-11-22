@@ -49,12 +49,10 @@ Un CSV viejo con solo `instante,potencia_kw` sigue funcionando.
 
 El **medidor se identifica por `device-id`** (uuid de `devices.id` en datamaq-telemetry). El nombre es solo una etiqueta humana.
 
-| Etiqueta (nombre en ML) | `--device-id` |
-|---|---|
-| `Trafo arriba` | `a01b1642-ed29-4c3e-a793-f57de09504f8` |
-| `Trafo abajo` | `ce7e5a9a-c5e8-4936-be9a-a2057ccf8b4c` |
+El mapeo entre etiqueta y `device-id` vive **fuera del repo** (configuración del despliegue, no versionada). Acá solo se
+documenta el formato: `--device-id <uuid-del-medidor>`.
 
-> **Escribí el nombre exacto.** Para la planta es `Trafo arriba` (con espacio). El nombre no identifica el medidor: lo que cuenta es `--device-id`.
+> **Escribí la etiqueta tal como figura en la configuración.** El nombre no identifica el medidor: lo que cuenta es `--device-id`.
 
 ## Comandos principales (`run.sh`)
 
@@ -75,9 +73,9 @@ El **medidor se identifica por `device-id`** (uuid de `devices.id` en datamaq-te
 ## Desagregación batch diaria (`disaggregate`)
 
 ```bash
-./run.sh disaggregate "Trafo arriba" --device-id a01b1642-ed29-4c3e-a793-f57de09504f8 \
+./run.sh disaggregate "<etiqueta>" --device-id <uuid-del-medidor> \
     --fecha 2026-11-21 --firmas config/firmas.json --salida-json salida/nilm_2026-11-21.json
-./run.sh disaggregate "Trafo arriba" --device-id a01b1642-ed29-4c3e-a793-f57de09504f8 \
+./run.sh disaggregate "<etiqueta>" --device-id <uuid-del-medidor> \
     --potencia 91.0 --nombre "Compresor 1"
 ```
 
@@ -91,7 +89,7 @@ El **medidor se identifica por `device-id`** (uuid de `devices.id` en datamaq-te
 
 | Opción | Qué hace |
 |---|---|
-| `medidor` (posicional) | Etiqueta humana (`"Trafo arriba"`). No identifica el medidor. |
+| `medidor` (posicional) | Etiqueta humana (por ejemplo `"Trafo 1"`). No identifica el medidor. |
 | `--device-id` (obligatoria) | uuid del medidor en telemetry. Ver la tabla de arriba. |
 | `--fecha YYYY-MM-DD` | Día local a procesar. Por defecto, D-1. |
 | `--archivo RUTA` | CSV diario del medidor. Por defecto: `<MEDICIONES_CSV_DIR>/<device-id>_<fecha>.csv`. |
@@ -146,8 +144,8 @@ Formato acordado con datamaq-telemetry (informe de la investigación de la Fase 
   "zona_horaria": "America/Argentina/Buenos_Aires",
   "ventana_utc": { "desde": "2026-11-21T03:00:00Z", "hasta": "2026-11-22T03:00:00Z" },
   "medidor": {
-    "device_id": "a01b1642-ed29-4c3e-a793-f57de09504f8",
-    "etiqueta_ml": "Trafo arriba",
+    "device_id": "<uuid-del-medidor>",
+    "etiqueta_ml": "<etiqueta>",
     "ultima_lectura_utc": "2026-11-21T23:55:00Z"
   },
   "cargas": [
@@ -218,6 +216,26 @@ Métricas principales:
 Límites: sin reactiva (solo P) no se separan cargas de igual potencia activa; con muestras cada 5 min,
 los escalones menores a un paso de muestreo no se ven; sin verdad de terreno no se mide la exactitud,
 solo la consistencia.
+
+## Uso docente
+
+Material para el módulo «Procesamiento de Aprendizaje Automático»: `docs/material-ensenanza/` (índice en su
+`README.md`, mapa de contenidos, ejercicios por bloque, práctica k-medias frente a DBSCAN, rúbrica y caso de estudio).
+
+**Regenerar los datos sintéticos** (lo único que se usa con estudiantes hasta contar con consentimiento):
+
+```bash
+./run.sh install
+./run.sh simulate        # data/input/sintetico.csv y data/verdad/sintetico.csv
+```
+
+**Datos reales anonimizados: cómo se entregan.** No se entregan a estudiantes sin el consentimiento escrito de la
+empresa. Cuando lo haya, el dueño los seudonimiza con `scripts/seudonimizar_mediciones.py`: reemplaza el nombre de la
+empresa y los identificadores de medidor, y verifica que instantes y potencias queden idénticos. La salida va a una
+carpeta fuera de git (el script se niega a escribir dentro de un repo) y se entrega por fuera del repo.
+
+**No redistribuir.** Los datos reales anonimizados son del cliente. Quien los reciba no los copia, no los publica y no los
+sube a ningún servicio. Las guías con respuestas (`docs/guia-docente.md`) no se publican a estudiantes.
 
 ## Configuración
 

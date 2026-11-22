@@ -1,9 +1,9 @@
 """src/infrastructure/cli/desagregar_cargas.py — Desagregación batch diaria (contrato nilm.intervalos.v1).
 
 Uso (el nombre del medidor es una etiqueta; la clave es --device-id, uuid de devices.id en telemetry):
-    ./run.sh disaggregate "Trafo arriba" --device-id a01b1642-ed29-4c3e-a793-f57de09504f8 \\
+    ./run.sh disaggregate "Trafo 1" --device-id 00000000-0000-4000-8000-000000000001 \\
         --fecha 2026-11-21 --firmas config/firmas.json --salida-json salida/nilm_2026-11-21.json
-    ./run.sh disaggregate "Trafo arriba" --device-id a01b1642-ed29-4c3e-a793-f57de09504f8 \\
+    ./run.sh disaggregate "Trafo 1" --device-id 00000000-0000-4000-8000-000000000001 \\
         --potencia 91.0 --nombre "Compresor 1"
 
 Día y zona: --fecha es un día de Argentina (America/Argentina/Buenos_Aires, UTC-3 sin horario de
