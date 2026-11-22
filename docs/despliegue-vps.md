@@ -1,8 +1,8 @@
 # Despliegue del batch `disaggregate` en el VPS
 
 Documento de planificación. **No se ejecutó nada en el VPS.** Todas las cifras de recursos son de esta
-máquina de desarrollo, con datos sintéticos (ver §3). Antes de instalar en el VPS hay que repetir la
-medición allí con un día real (ver §6).
+máquina de desarrollo, con datos sintéticos (ver §4). Antes de instalar en el VPS hay que repetir la
+medición allí con un día real (ver §7).
 
 ## 1. Versión mínima de Python
 
@@ -108,7 +108,7 @@ ruido de la medición (±0,2 s entre repeticiones). Tomar ~1,7–1,8 s como cost
 
 **Nota sobre la muestra.** Se usó 1 muestra por minuto como cota superior. Si el medidor real muestrea
 cada 5 minutos, el número de filas por día baja cinco veces y el tiempo y la RAM también bajan. No se
-midió con datos reales (ver §6).
+midió con datos reales (ver §7).
 
 ## 5. Variables de configuración
 
