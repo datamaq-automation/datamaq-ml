@@ -2,6 +2,7 @@
 
 import math
 from collections import defaultdict
+from datetime import datetime
 from itertools import pairwise
 from statistics import pstdev
 
@@ -12,6 +13,19 @@ from src.domain.cargas.entities import (
     EventoCarga,
     Medicion,
 )
+
+
+def integrar_trapecios(puntos: list[tuple[datetime, float]]) -> float:
+    """Integral en el tiempo de una serie (instante, valor) por la regla de los trapecios.
+
+    Con potencia en kW el resultado es energía en kWh; con reactiva en kVAr, en kVArh.
+    Los puntos deben venir ordenados por instante. Con menos de dos puntos, la integral es 0.
+    """
+    total = 0.0
+    for (t0, v0), (t1, v1) in pairwise(puntos):
+        horas = (t1 - t0).total_seconds() / 3600.0
+        total += (v0 + v1) / 2.0 * horas
+    return total
 
 
 def detectar_eventos(mediciones: list[Medicion], umbral_kw: float) -> list[EventoCarga]:
