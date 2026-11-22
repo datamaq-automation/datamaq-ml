@@ -156,3 +156,48 @@ def _estado_banco(
             nivel = nuevo
         estado.append(nivel)
     return estado
+
+
+def simular_contactores(
+    cargas: list[CargaSimulada],
+    dias: int,
+    semilla: int,
+    inicio: datetime,
+    desfase_s: float = 0.0,
+) -> list[list[tuple[datetime, datetime]]]:
+    """Intervalos [arranque, parada) de cada carga: lo que diría un contactor NA de cada motor.
+
+    Usa el mismo azar que `simular_tablero` (misma semilla, mismos arranques): la verdad de contactores
+    coincide con los eventos de esa simulación. `desfase_s` corre los tiempos del autómata respecto del
+    medidor: es el error de reloj que se quiere medir (0 s es el reloj perfecto).
+    """
+    azar = random.Random(semilla)
+    n = dias * MUESTRAS_POR_DIA
+    encendida = [_encendidos(c, n, azar) for c in cargas]
+    desfase = timedelta(seconds=desfase_s)
+    return [_tramos_de_contacto(on, inicio, desfase) for on in encendida]
+
+
+def _tramos_de_contacto(
+    on: list[bool], inicio: datetime, desfase: timedelta
+) -> list[tuple[datetime, datetime]]:
+    tramos: list[tuple[datetime, datetime]] = []
+    arranque: int | None = None
+    for i, prendida in enumerate(on):
+        if prendida and arranque is None:
+            arranque = i
+        elif not prendida and arranque is not None:
+            tramos.append(_instantes(inicio, arranque, i, desfase))
+            arranque = None
+    if arranque is not None:
+        tramos.append(_instantes(inicio, arranque, len(on), desfase))
+    return tramos
+
+
+def _instantes(
+    inicio: datetime, desde: int, hasta: int, desfase: timedelta
+) -> tuple[datetime, datetime]:
+    return (
+        inicio + timedelta(minutes=PASO_MIN * desde) + desfase,
+        inicio + timedelta(minutes=PASO_MIN * hasta) + desfase,
+    )
