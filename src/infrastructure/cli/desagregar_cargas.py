@@ -7,7 +7,7 @@ Uso (el nombre del medidor es exacto, con espacio: "Trafo arriba"):
 
 import argparse
 import json
-from datetime import date, datetime, time
+from datetime import UTC, date, datetime, time, timedelta
 from pathlib import Path
 
 from src.application.cargas.dtos.desagregar_cargas import (
@@ -117,22 +117,29 @@ def main(args: list[str] | None = None) -> int:
 
     resultado = AtribuirCargasBatchUseCase().ejecutar(
         AtribuirCargasBatchRequestDTO(
-            dispositivo_id=parsed.medidor,
-            fecha=parsed.fecha,
+            device_id=parsed.medidor,
+            etiqueta_ml=parsed.medidor,
+            fecha_local=parsed.fecha,
+            ventana_desde_utc=desde,
+            ventana_hasta_utc=desde + timedelta(days=1),
+            generado_en_utc=datetime.now(UTC).replace(tzinfo=None),
             mediciones=mediciones,
             firmas=firmas,
         )
     )
 
-    logger.info("Desagregación completada. Intervalos asignados: %d", len(resultado.intervalos))
-    for res in resultado.resumen_maquinas:
+    intervalos = sum(len(c.intervalos) for c in resultado.cargas)
+    logger.info("Desagregación completada. Intervalos asignados: %d", intervalos)
+    for carga in resultado.cargas:
+        horas = sum(it.horas for it in carga.intervalos)
+        energia = sum(it.energia_kwh_medida for it in carga.intervalos)
         logger.info(
             "Máquina '%s' (%s): %.2f h marcha, %d ciclos, %.2f kWh",
-            res.nombre,
-            res.machine_id,
-            res.horas_marcha,
-            res.ciclos,
-            res.energia_kwh,
+            carga.nombre,
+            carga.load_id or "sin load_id",
+            horas,
+            len(carga.intervalos),
+            energia,
         )
     return 0
 

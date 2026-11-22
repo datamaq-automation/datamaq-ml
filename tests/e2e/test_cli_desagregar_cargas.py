@@ -50,4 +50,7 @@ def test_cli_desagregar_cargas_ejecucion(
     assert ret == 0
     assert "Iniciando desagregación batch para 'trafo_test'" in caplog.text
     assert "Desagregación completada. Intervalos asignados: 1" in caplog.text
-    assert "Máquina 'Compresor Test' (comp-1): 1.08 h marcha, 1 ciclos, 54.17 kWh" in caplog.text
+    # Energía medida, no 50 kW × 1,08 h: 08:05–09:05 a 50 kW (50 kWh) más la bajada a 09:10 (2,08 kWh).
+    assert (
+        "Máquina 'Compresor Test' (sin load_id): 1.08 h marcha, 1 ciclos, 52.08 kWh" in caplog.text
+    )
