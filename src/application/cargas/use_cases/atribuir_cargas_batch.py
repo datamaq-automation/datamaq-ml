@@ -11,7 +11,14 @@ from src.application.cargas.dtos.desagregar_cargas import (
     FirmaConfirmadaDTO,
     IntervaloMarchaDTO,
     MedidorDTO,
+    ParametrosBancoDTO,
     VentanaUtcDTO,
+)
+from src.domain.cargas.banco_capacitores import (
+    ConmutacionBanco,
+    coincide_con_banco,
+    detectar_conmutaciones,
+    es_evento_de_banco,
 )
 from src.domain.cargas.entities import EventoCarga, Medicion
 from src.domain.cargas.services import detectar_eventos, integrar_trapecios
@@ -39,6 +46,33 @@ def _cae_bajo_base(
     """
     base = mediciones[indice_inicio - 1].potencia_kw
     return mediciones[indice_evento].potencia_kw < base - tolerancia_kw
+
+
+def buscar_firma_compatible(
+    evento: EventoCarga,
+    firmas: list[FirmaConfirmadaDTO],
+    params: ParametrosBancoDTO,
+    usar_q: bool = True,
+) -> tuple[FirmaConfirmadaDTO, float] | None:
+    """Firma más parecida al salto y la distancia en P, o None si ninguna encaja.
+
+    ΔP es el criterio principal: solo entran firmas cuya potencia nominal cae dentro de su tolerancia.
+    La ΔQ suma con su peso, pero solo si `usar_q` es True (si el escalón tiene la ΔQ contaminada por
+    una conmutación de banco, no se usa). Con pesos iguales (el default) la distancia es la euclídea en P-Q.
+    """
+    delta_p = abs(evento.delta_kw)
+    delta_q = abs(evento.delta_kvar)
+    candidatas: list[tuple[float, float, FirmaConfirmadaDTO]] = []
+    for firma in firmas:
+        dist_p = abs(delta_p - firma.potencia_nominal_kw)
+        if dist_p <= firma.tolerancia_kw:
+            dist_q = abs(delta_q - firma.reactiva_tipica_kvar) if usar_q else 0.0
+            distancia = math.sqrt((params.peso_p * dist_p) ** 2 + (params.peso_q * dist_q) ** 2)
+            candidatas.append((distancia, dist_p, firma))
+    if not candidatas:
+        return None
+    _, dist_p, firma = min(candidatas, key=lambda t: t[0])
+    return firma, dist_p
 
 
 def _confianza(distancia_kw: float, tolerancia_kw: float) -> float:
@@ -75,8 +109,19 @@ class AtribuirCargasBatchUseCase:
         }
 
         if request.firmas and len(mediciones) >= 2:
-            eventos = detectar_eventos(mediciones, umbral_kw=umbral_minimo_kw(request.firmas))
-            for machine_id, intervalo in self._emparejar_eventos(request, mediciones, eventos):
+            params = request.parametros_banco
+            conmutaciones = detectar_conmutaciones(
+                mediciones, params.umbral_p_kw, params.umbral_q_kvar
+            )
+            # Las conmutaciones de banco no son cargas: no entran en la atribución.
+            eventos = [
+                e
+                for e in detectar_eventos(mediciones, umbral_kw=umbral_minimo_kw(request.firmas))
+                if not es_evento_de_banco(e, params.umbral_p_kw, params.umbral_q_kvar)
+            ]
+            for machine_id, intervalo in self._emparejar_eventos(
+                request, mediciones, eventos, conmutaciones
+            ):
                 intervalos_por_firma[machine_id].append(intervalo)
 
         return AtribuirCargasBatchResponseDTO(
@@ -108,7 +153,9 @@ class AtribuirCargasBatchUseCase:
         request: AtribuirCargasBatchRequestDTO,
         mediciones: list[Medicion],
         eventos: list[EventoCarga],
+        conmutaciones: list[ConmutacionBanco],
     ) -> list[tuple[str, IntervaloMarchaDTO]]:
+        params = request.parametros_banco
         instantes = [m.instante for m in mediciones]
         firmas_por_id = {f.machine_id: f for f in request.firmas}
         cerrados: list[tuple[str, IntervaloMarchaDTO]] = []
@@ -117,7 +164,9 @@ class AtribuirCargasBatchUseCase:
 
         for ev in eventos:
             indice = bisect_left(instantes, ev.instante)
-            encontrada = self._buscar_firma_compatible(ev, request.firmas)
+            # Si un banco conmutó en la misma ventana, la ΔQ de este escalón no es confiable: se empareja solo con P.
+            contaminado = coincide_con_banco(ev.instante, conmutaciones, params.tolerancia)
+            encontrada = buscar_firma_compatible(ev, request.firmas, params, usar_q=not contaminado)
             if encontrada is None:
                 if not ev.es_encendido:
                     cerrados.extend(
@@ -170,30 +219,6 @@ class AtribuirCargasBatchUseCase:
                     (machine_id, self._crear_intervalo(firma, mediciones, inicio, indice, conf_on))
                 )
         return cortados
-
-    def _buscar_firma_compatible(
-        self,
-        evento: EventoCarga,
-        firmas: list[FirmaConfirmadaDTO],
-    ) -> tuple[FirmaConfirmadaDTO, float] | None:
-        """Firma más parecida al salto (en el plano P-Q) y la distancia en P, o None si ninguna encaja."""
-        delta_p = abs(evento.delta_kw)
-        delta_q = abs(evento.delta_kvar)
-
-        candidatas: list[tuple[float, float, FirmaConfirmadaDTO]] = []
-        for firma in firmas:
-            dist_p = abs(delta_p - firma.potencia_nominal_kw)
-            if dist_p <= firma.tolerancia_kw:
-                # Distancia euclidiana en el plano P-Q si hay reactiva confirmada o detectada
-                dist_q = abs(delta_q - firma.reactiva_tipica_kvar)
-                candidatas.append((math.sqrt(dist_p**2 + dist_q**2), dist_p, firma))
-
-        if not candidatas:
-            return None
-
-        candidatas.sort(key=lambda t: t[0])
-        _, dist_p, firma = candidatas[0]
-        return firma, dist_p
 
     def _crear_intervalo(
         self,
