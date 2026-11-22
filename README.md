@@ -128,6 +128,7 @@ Son **magnitudes medidas**, no la potencia nominal de la firma:
 - **Energía (`energia_kwh_medida`):**
   - si el CSV trae `energia_kwh`, es la **diferencia del contador** entre los dos bordes del tramo, menos la base por el tiempo;
   - si no, es la **integral por trapecios** de la potencia menos la base (versión 1).
+  La decisión se toma por intervalo: si falta el contador en alguno de los dos bordes del tramo, ese intervalo usa la integral.
   El error de la integral queda acotado por medio paso de muestreo (2,5 min con datos de 5 min).
 - **Potencia media (`potencia_media_kw`):** energía dividida por horas.
 - **Reactiva (`delta_reactiva_kvar`):** reactiva media del tramo menos la base. `null` si el CSV no trae reactiva.
