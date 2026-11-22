@@ -30,6 +30,9 @@ from src.domain.cargas.entities import EventoCarga, Medicion
 from src.domain.cargas.services import detectar_eventos, integrar_trapecios
 
 HUECO_MAXIMO_MIN = 5.0
+UMBRAL_HUECOS_CALIDAD = (
+    10  # huecos mayores a 5 min por día a partir de los cuales el día es de calidad baja
+)
 CERRADO = "cerrado"  # termina en un apagado que es de la misma firma: consume 2 eventos
 ABIERTO = "abierto"  # termina en la última medición del día, sin apagado: consume 1 evento
 CORTADO = "cortado"  # termina en un escalón que no es de la firma (otra carga se apagó): consume 1
@@ -130,6 +133,11 @@ def _resumen_cargas(
     return resumen
 
 
+def _energia_medida(ventana: list[Medicion]) -> float:
+    """Energía medida del día (integral trapezoidal de la potencia de la ventana), en kWh."""
+    return integrar_trapecios([(m.instante, m.potencia_kw) for m in ventana]) if ventana else 0.0
+
+
 def _huecos(ventana: list[Medicion]) -> int:
     return sum(
         1
@@ -138,13 +146,60 @@ def _huecos(ventana: list[Medicion]) -> int:
     )
 
 
-def _solapamientos(clasificados: list[Clasificado]) -> tuple[int, float]:
-    """Pares de intervalos de cargas distintas que se superponen en el tiempo, y las horas solapadas."""
+def candidatos_a_fusion(
+    clasificados: list[Clasificado], umbral: float = 0.5
+) -> set[frozenset[str]]:
+    """Pares de grupos que son, muy probablemente, la misma máquina.
+
+    Criterio explícito: dos grupos son candidatos si, para CADA uno, al menos `umbral` (por defecto la mitad)
+    de sus intervalos se superpone con algún intervalo del otro. Así un grupo que solo toca a otro de vez
+    en cuando no se fusiona; uno que coincide casi siempre con otro, sí. Es una evaluación: no cambia la energía.
+    """
+    por_grupo: dict[str, list[tuple[datetime, datetime]]] = {}
+    for nombre, it, _ in clasificados:
+        por_grupo.setdefault(nombre, []).append((it.inicio_utc, it.fin_utc))
+    candidatos: set[frozenset[str]] = set()
+    nombres = sorted(por_grupo)
+    for i, a in enumerate(nombres):
+        for b in nombres[i + 1 :]:
+            fa = _fraccion_superpuesta(por_grupo[a], por_grupo[b])
+            fb = _fraccion_superpuesta(por_grupo[b], por_grupo[a])
+            if min(fa, fb) >= umbral:
+                candidatos.add(frozenset({a, b}))
+    return candidatos
+
+
+def _fusion(clasificados: list[Clasificado]) -> tuple[int, int]:
+    """(pares candidatos a fusión, solapamientos que quedan después de fusionarlos)."""
+    candidatos = candidatos_a_fusion(clasificados)
+    return len(candidatos), _solapamientos(clasificados, candidatos)[0]
+
+
+def _fraccion_superpuesta(
+    propios: list[tuple[datetime, datetime]], otros: list[tuple[datetime, datetime]]
+) -> float:
+    """Fracción de los intervalos propios que se superponen con algún intervalo de los otros."""
+    if not propios:
+        return 0.0
+    coinciden = sum(
+        1 for ini, fin in propios if any(ini < fin2 and ini2 < fin for ini2, fin2 in otros)
+    )
+    return coinciden / len(propios)
+
+
+def _solapamientos(
+    clasificados: list[Clasificado], fusionados: set[frozenset[str]] | None = None
+) -> tuple[int, float]:
+    """Pares de intervalos de grupos distintos que se superponen, y las horas solapadas.
+
+    Los pares de grupos que se fusionan (`fusionados`) son la misma máquina: sus superposiciones no cuentan.
+    """
+    excluir = fusionados or set()
     pares = 0
     horas = 0.0
     for i, (nombre_a, a, _) in enumerate(clasificados):
         for nombre_b, b, _ in clasificados[i + 1 :]:
-            if nombre_a == nombre_b:
+            if nombre_a == nombre_b or frozenset({nombre_a, nombre_b}) in excluir:
                 continue
             inicio = max(a.inicio_utc, b.inicio_utc)
             fin = min(a.fin_utc, b.fin_utc)
@@ -176,7 +231,16 @@ def _banco(
 
 
 class ValidarDesagregacionDiaUseCase:
-    """Calcula las métricas de un día: eventos, atribución, energía, solapamientos, huecos y banco."""
+    """Calcula las métricas de un día: eventos, atribución, energía, solapamientos, huecos y banco.
+
+    `umbral_huecos_calidad`: un día con más huecos de muestreo mayores a 5 minutos que este umbral se marca
+    como de calidad baja (la integral y el conteo de eventos son menos confiables).
+    """
+
+    def __init__(self, umbral_huecos_calidad: int = UMBRAL_HUECOS_CALIDAD) -> None:
+        if umbral_huecos_calidad < 0:
+            raise ValueError("El umbral de huecos no puede ser negativo.")
+        self._umbral_huecos = umbral_huecos_calidad
 
     def ejecutar(
         self,
@@ -199,11 +263,10 @@ class ValidarDesagregacionDiaUseCase:
             tipos.count(CORTADO),
         )
         atribuidos = 2 * cerrados + abiertos + cortados
-        energia_medida = (
-            integrar_trapecios([(m.instante, m.potencia_kw) for m in ventana]) if ventana else 0.0
-        )
+        energia_medida = _energia_medida(ventana)
         energia_atribuida = sum(it.energia_kwh_medida for _, it, _ in clasificados)
         solapamientos, horas_solapadas = _solapamientos(clasificados)
+        pares_fusion, solapamientos_tras = _fusion(clasificados)
         umbral = umbral_minimo_kw(firmas) if firmas else 0.1
         banco_conmutaciones, banco_contaminados, energia_solo_p, diferencia = _banco(
             ventana, eventos, respuesta_solo_p, energia_atribuida
@@ -212,6 +275,7 @@ class ValidarDesagregacionDiaUseCase:
         return MetricasDiaDTO(
             mediciones=len(ventana),
             huecos_mayores_a_5_min=_huecos(ventana),
+            calidad_baja=_huecos(ventana) > self._umbral_huecos,
             umbral_kw=round(umbral, 3),
             energia_medida_kwh=round(energia_medida, 3),
             eventos=len(eventos),
@@ -232,6 +296,8 @@ class ValidarDesagregacionDiaUseCase:
             energia_atribuida_solo_p_kwh=energia_solo_p,
             diferencia_pct_p_vs_pq=diferencia,
             solapamientos=solapamientos,
+            pares_candidatos_fusion=pares_fusion,
+            solapamientos_tras_fusion=solapamientos_tras,
             horas_solapadas=round(horas_solapadas, 4),
             cargas=_resumen_cargas(respuesta, clasificados),
         )

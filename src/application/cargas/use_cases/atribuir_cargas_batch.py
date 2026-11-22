@@ -2,7 +2,7 @@
 
 import math
 from bisect import bisect_left
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 
 from src.application.cargas.dtos.desagregar_cargas import (
     AtribuirCargasBatchRequestDTO,
@@ -12,6 +12,7 @@ from src.application.cargas.dtos.desagregar_cargas import (
     IntervaloMarchaDTO,
     MedidorDTO,
     ParametrosBancoDTO,
+    ParametrosMotorDTO,
     VentanaUtcDTO,
 )
 from src.domain.cargas.banco_capacitores import (
@@ -26,7 +27,7 @@ from src.domain.cargas.services import detectar_eventos, integrar_trapecios
 
 def _utc(instante: datetime) -> datetime:
     """Instante interno (UTC sin zona) → instante con zona UTC, para la salida."""
-    return instante.replace(tzinfo=UTC)
+    return instante.replace(tzinfo=timezone.utc)
 
 
 def umbral_minimo_kw(firmas: list[FirmaConfirmadaDTO]) -> float:
@@ -75,6 +76,33 @@ def buscar_firma_compatible(
     return firma, dist_p
 
 
+def tolerancia_efectiva(firma: FirmaConfirmadaDTO, params: ParametrosMotorDTO) -> float:
+    """Tolerancia que usa el motor para la firma.
+
+    Por defecto, la tolerancia explícita de la firma. Con `tolerancia_por_dispersion`, la dispersión medida del
+    grupo (si la firma la trae) por `factor_dispersion`, acotada entre `tolerancia_min_kw` y `tolerancia_max_kw`.
+    Una tolerancia ancha confunde cargas de potencia parecida; el tope la evita.
+    """
+    if not params.tolerancia_por_dispersion or firma.dispersion_kw is None:
+        return firma.tolerancia_kw
+    estimada = params.factor_dispersion * firma.dispersion_kw
+    return min(max(estimada, params.tolerancia_min_kw), params.tolerancia_max_kw)
+
+
+def _con_tolerancias_efectivas(
+    request: AtribuirCargasBatchRequestDTO,
+) -> AtribuirCargasBatchRequestDTO:
+    """Copia de la petición con la tolerancia efectiva de cada firma. Sin cambios con el default."""
+    params = request.parametros_motor
+    if not params.tolerancia_por_dispersion:
+        return request
+    firmas = [
+        f.model_copy(update={"tolerancia_kw": tolerancia_efectiva(f, params)})
+        for f in request.firmas
+    ]
+    return request.model_copy(update={"firmas": firmas})
+
+
 def _confianza(distancia_kw: float, tolerancia_kw: float) -> float:
     """1 si el salto coincide exacto con la potencia nominal; 0 si cae en el borde de la tolerancia."""
     if tolerancia_kw <= 0:
@@ -96,6 +124,7 @@ class AtribuirCargasBatchUseCase:
     """
 
     def ejecutar(self, request: AtribuirCargasBatchRequestDTO) -> AtribuirCargasBatchResponseDTO:
+        request = _con_tolerancias_efectivas(request)
         mediciones = sorted(
             (
                 m
@@ -116,7 +145,11 @@ class AtribuirCargasBatchUseCase:
             # Las conmutaciones de banco no son cargas: no entran en la atribución.
             eventos = [
                 e
-                for e in detectar_eventos(mediciones, umbral_kw=umbral_minimo_kw(request.firmas))
+                for e in detectar_eventos(
+                    mediciones,
+                    umbral_kw=umbral_minimo_kw(request.firmas),
+                    muestras_persistencia=request.parametros_motor.muestras_debounce,
+                )
                 if not es_evento_de_banco(e, params.umbral_p_kw, params.umbral_q_kvar)
             ]
             for machine_id, intervalo in self._emparejar_eventos(
@@ -125,7 +158,7 @@ class AtribuirCargasBatchUseCase:
                 intervalos_por_firma[machine_id].append(intervalo)
 
         return AtribuirCargasBatchResponseDTO(
-            generado_en_utc=request.generado_en_utc.replace(tzinfo=UTC),
+            generado_en_utc=request.generado_en_utc.replace(tzinfo=timezone.utc),
             fecha_local=request.fecha_local,
             ventana_utc=VentanaUtcDTO(
                 desde=_utc(request.ventana_desde_utc),

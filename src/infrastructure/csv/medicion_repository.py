@@ -9,7 +9,7 @@ Formato (columnas en este orden; reactiva y energía son opcionales):
 """
 
 import csv
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 from src.domain.cargas.entities import Medicion
@@ -37,7 +37,7 @@ def _instante_utc(texto: str) -> datetime:
     instante = datetime.fromisoformat(texto)
     if instante.tzinfo is None:
         return instante
-    return instante.astimezone(UTC).replace(tzinfo=None)
+    return instante.astimezone(timezone.utc).replace(tzinfo=None)
 
 
 class CsvMedicionRepository:

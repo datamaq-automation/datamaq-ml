@@ -1,6 +1,7 @@
 """src/domain/cargas/services.py — Reglas de negocio puras para detectar y resumir cargas."""
 
 import math
+from bisect import bisect_left
 from collections import defaultdict
 from datetime import datetime
 from itertools import pairwise
@@ -28,10 +29,19 @@ def integrar_trapecios(puntos: list[tuple[datetime, float]]) -> float:
     return total
 
 
-def detectar_eventos(mediciones: list[Medicion], umbral_kw: float) -> list[EventoCarga]:
-    """Devuelve los saltos |ΔP| >= umbral entre mediciones consecutivas (ordenadas por instante)."""
+def detectar_eventos(
+    mediciones: list[Medicion], umbral_kw: float, muestras_persistencia: int = 1
+) -> list[EventoCarga]:
+    """Devuelve los saltos |ΔP| >= umbral entre mediciones consecutivas (ordenadas por instante).
+
+    `muestras_persistencia` (debounce): con 1 (default) no se filtra nada. Con k > 1, un encendido seguido de
+    un apagado de la misma magnitud a menos de k muestras, que vuelve al nivel anterior, es un pico de una
+    lectura y se descarta. Así un glitch no genera un intervalo espurio.
+    """
     if umbral_kw <= 0:
         raise ValueError("El umbral debe ser positivo.")
+    if muestras_persistencia < 1:
+        raise ValueError("Las muestras de persistencia deben ser al menos 1.")
     ordenadas = sorted(mediciones, key=lambda m: m.instante)
     eventos: list[EventoCarga] = []
     for previa, actual in pairwise(ordenadas):
@@ -45,7 +55,31 @@ def detectar_eventos(mediciones: list[Medicion], umbral_kw: float) -> list[Event
             eventos.append(
                 EventoCarga(instante=actual.instante, delta_kw=delta, delta_kvar=delta_q)
             )
+    if muestras_persistencia > 1:
+        eventos = _quitar_picos(eventos, ordenadas, umbral_kw, muestras_persistencia)
     return eventos
+
+
+def _quitar_picos(
+    eventos: list[EventoCarga], ordenadas: list[Medicion], umbral_kw: float, muestras: int
+) -> list[EventoCarga]:
+    """Quita pares encendido-apagado de la misma magnitud separados por menos de `muestras` muestras."""
+    instantes = [m.instante for m in ordenadas]
+    indices = [bisect_left(instantes, e.instante) for e in eventos]
+    resultado: list[EventoCarga] = []
+    i = 0
+    while i < len(eventos):
+        if (
+            i + 1 < len(eventos)
+            and indices[i + 1] - indices[i] < muestras
+            and eventos[i].es_encendido != eventos[i + 1].es_encendido
+            and abs(eventos[i].delta_kw + eventos[i + 1].delta_kw) <= umbral_kw / 2
+        ):
+            i += 2
+            continue
+        resultado.append(eventos[i])
+        i += 1
+    return resultado
 
 
 def saltos_kw(mediciones: list[Medicion]) -> list[float]:

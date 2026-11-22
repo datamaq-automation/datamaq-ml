@@ -24,6 +24,10 @@ class MetricasDiaDTO(BaseModel):
 
     mediciones: int
     huecos_mayores_a_5_min: int
+    calidad_baja: bool = Field(
+        default=False,
+        description="Más huecos de muestreo que el umbral del día: resultados menos confiables",
+    )
     umbral_kw: float
     energia_medida_kwh: float
     eventos: int
@@ -51,6 +55,13 @@ class MetricasDiaDTO(BaseModel):
     diferencia_pct_p_vs_pq: float = Field(
         default=0.0,
         description="Cuánto cambia la energía atribuida al usar P y Q frente a solo P, en %",
+    )
+    pares_candidatos_fusion: int = Field(
+        default=0,
+        description="Pares de grupos que, por el criterio de fusión, son probablemente la misma máquina",
+    )
+    solapamientos_tras_fusion: int = Field(
+        default=0, description="Solapamientos que quedan después de fusionar los pares candidatos"
     )
     solapamientos: int = Field(
         description="Pares de intervalos de cargas distintas que se superponen"

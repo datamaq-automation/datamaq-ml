@@ -1,7 +1,7 @@
 """tests/unit/cargas/test_atribuir_cargas_batch.py — Caso de uso de desagregación batch diaria (contrato nilm.intervalos.v1)."""
 
 import json
-from datetime import UTC, date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 
 import pytest
 
@@ -25,7 +25,7 @@ CINCO_MIN = timedelta(minutes=5)
 
 def U(*partes: int) -> datetime:
     """Instante en UTC con zona, como lo devuelve la salida."""
-    return datetime(*partes, tzinfo=UTC)
+    return datetime(*partes, tzinfo=timezone.utc)
 
 
 def peticion(

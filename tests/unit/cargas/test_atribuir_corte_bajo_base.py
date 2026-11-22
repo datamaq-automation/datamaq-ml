@@ -1,6 +1,6 @@
 """tests/unit/cargas/test_atribuir_corte_bajo_base.py — Un intervalo no se estira por encima de una caída bajo la base."""
 
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 
 from src.application.cargas.dtos.desagregar_cargas import (
     AtribuirCargasBatchRequestDTO,
@@ -52,5 +52,5 @@ def test_otra_carga_que_se_apaga_durante_el_intervalo_no_produce_energia_negativ
     (it,) = resp.cargas[0].intervalos
     assert it.energia_kwh_medida >= 0.0
     # El intervalo termina en la caída de las 09:30, no en el apagado de las 10:00.
-    assert it.fin_utc == datetime(2026, 9, 20, 9, 30, tzinfo=UTC)
+    assert it.fin_utc == datetime(2026, 9, 20, 9, 30, tzinfo=timezone.utc)
     assert it.potencia_media_kw >= 0.0
