@@ -9,6 +9,7 @@ Uso:
 """
 
 import argparse
+import sys
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -35,6 +36,12 @@ from src.infrastructure.settings.logger import logger
 from src.infrastructure.sklearn.dbscan_agrupador import DbscanAgrupador
 
 TODO_EL_RANGO = (datetime(2000, 1, 1), datetime(2100, 1, 1))
+
+# Códigos de salida, los mismos que validar_dia_real: 0 = terminó (incluso con advertencias),
+# 2 = argumentos inválidos o medidor desconocido, 3 = datos faltantes o ilegibles.
+CODIGO_OK = 0
+CODIGO_ARGUMENTOS = 2
+CODIGO_DATOS = 3
 
 # Opción de la CLI → variable de Settings. Lo que se pasa por argumento tiene prioridad.
 PARAMETROS_NILM = {
@@ -160,8 +167,21 @@ def _mostrar_resultado(
         mostrar(lineas_histograma(r.histograma, r.umbral.kw))
 
 
-def main() -> None:
+def _error_de_rango(args: argparse.Namespace) -> list[str] | None:
+    if args.hasta <= args.desde:
+        return error_que_ensena(
+            "El rango de fechas está al revés.",
+            f"--hasta ({args.hasta:%Y-%m-%d}) no es posterior a --desde ({args.desde:%Y-%m-%d}).",
+            "poné --hasta después de --desde, por ejemplo --desde 2026-09-15 --hasta 2026-09-22.",
+        )
+    return None
+
+
+def main() -> int:
     args = leer_argumentos()
+    if (error := _error_de_rango(args)) is not None:
+        imprimir_error(error)
+        return CODIGO_ARGUMENTOS
     cambios = {
         var: getattr(args, opcion)
         for opcion, var in PARAMETROS_NILM.items()
@@ -192,7 +212,7 @@ def main() -> None:
                 "README.md, sección de datos",
             )
         )
-        return
+        return CODIGO_DATOS
     desconocidos = [m for m in args.medidores if m not in disponibles]
     if desconocidos:
         imprimir_error(
@@ -202,7 +222,7 @@ def main() -> None:
                 f"usá uno de estos: {', '.join(disponibles)}.",
             )
         )
-        return
+        return CODIGO_ARGUMENTOS
     medidores = args.medidores or disponibles
 
     logger.info(describir_nilm(settings))
@@ -219,7 +239,8 @@ def main() -> None:
         resultados.guardar(medidor, [_carga(c) for c in r.cargas])
         resultados.guardar_entrenamiento(medidor, _resumen_entrenamiento(r))
         _mostrar_resultado(r, medidor, args.explica, args.grafico)
+    return CODIGO_OK
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())
