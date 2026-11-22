@@ -24,6 +24,10 @@ class MetricasDiaDTO(BaseModel):
 
     mediciones: int
     huecos_mayores_a_5_min: int
+    calidad_baja: bool = Field(
+        default=False,
+        description="Más huecos de muestreo que el umbral del día: resultados menos confiables",
+    )
     umbral_kw: float
     energia_medida_kwh: float
     eventos: int

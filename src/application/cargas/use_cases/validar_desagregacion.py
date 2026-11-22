@@ -30,6 +30,9 @@ from src.domain.cargas.entities import EventoCarga, Medicion
 from src.domain.cargas.services import detectar_eventos, integrar_trapecios
 
 HUECO_MAXIMO_MIN = 5.0
+UMBRAL_HUECOS_CALIDAD = (
+    10  # huecos mayores a 5 min por día a partir de los cuales el día es de calidad baja
+)
 CERRADO = "cerrado"  # termina en un apagado que es de la misma firma: consume 2 eventos
 ABIERTO = "abierto"  # termina en la última medición del día, sin apagado: consume 1 evento
 CORTADO = "cortado"  # termina en un escalón que no es de la firma (otra carga se apagó): consume 1
@@ -228,7 +231,16 @@ def _banco(
 
 
 class ValidarDesagregacionDiaUseCase:
-    """Calcula las métricas de un día: eventos, atribución, energía, solapamientos, huecos y banco."""
+    """Calcula las métricas de un día: eventos, atribución, energía, solapamientos, huecos y banco.
+
+    `umbral_huecos_calidad`: un día con más huecos de muestreo mayores a 5 minutos que este umbral se marca
+    como de calidad baja (la integral y el conteo de eventos son menos confiables).
+    """
+
+    def __init__(self, umbral_huecos_calidad: int = UMBRAL_HUECOS_CALIDAD) -> None:
+        if umbral_huecos_calidad < 0:
+            raise ValueError("El umbral de huecos no puede ser negativo.")
+        self._umbral_huecos = umbral_huecos_calidad
 
     def ejecutar(
         self,
@@ -263,6 +275,7 @@ class ValidarDesagregacionDiaUseCase:
         return MetricasDiaDTO(
             mediciones=len(ventana),
             huecos_mayores_a_5_min=_huecos(ventana),
+            calidad_baja=_huecos(ventana) > self._umbral_huecos,
             umbral_kw=round(umbral, 3),
             energia_medida_kwh=round(energia_medida, 3),
             eventos=len(eventos),

@@ -20,6 +20,7 @@ from pathlib import Path
 
 from src.application.cargas.dtos.desagregar_cargas import FirmaConfirmadaDTO
 from src.application.cargas.use_cases.validar_desagregacion import (
+    UMBRAL_HUECOS_CALIDAD,
     ValidarDesagregacionDiaUseCase,
 )
 from src.infrastructure.cli.desagregar_cargas import ventana_utc_del_dia
@@ -44,6 +45,12 @@ def _construir_parser() -> argparse.ArgumentParser:
     parser.add_argument("--fecha", type=_fecha_local, required=True, help="Día local (YYYY-MM-DD)")
     parser.add_argument(
         "--salida-json", type=Path, required=True, help="Dónde escribir las métricas"
+    )
+    parser.add_argument(
+        "--umbral-huecos",
+        type=int,
+        default=UMBRAL_HUECOS_CALIDAD,
+        help="huecos de muestreo (>5 min) por día a partir de los que el día es de calidad baja",
     )
     return parser
 
@@ -77,7 +84,9 @@ def main(args: list[str] | None = None) -> int:
         logger.error("CSV inválido (%s): %s", parsed.archivo, error)
         return CODIGO_DATOS
 
-    metricas = ValidarDesagregacionDiaUseCase().ejecutar(mediciones, firmas, desde, hasta)
+    metricas = ValidarDesagregacionDiaUseCase(umbral_huecos_calidad=parsed.umbral_huecos).ejecutar(
+        mediciones, firmas, desde, hasta
+    )
     parsed.salida_json.parent.mkdir(parents=True, exist_ok=True)
     parsed.salida_json.write_text(metricas.model_dump_json(indent=2) + "\n", encoding="utf-8")
     logger.info(
