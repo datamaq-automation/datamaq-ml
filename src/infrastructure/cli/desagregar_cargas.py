@@ -220,7 +220,7 @@ def _ejecutar(parsed: argparse.Namespace) -> int:
             fecha_local=fecha,
             ventana_desde_utc=desde,
             ventana_hasta_utc=hasta,
-            generado_en_utc=datetime.now(UTC).replace(tzinfo=None),
+            generado_en_utc=datetime.now(UTC).replace(tzinfo=None, microsecond=0),
             mediciones=mediciones,
             firmas=firmas,
         )

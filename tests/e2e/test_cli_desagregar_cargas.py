@@ -1,6 +1,7 @@
 """tests/e2e/test_cli_desagregar_cargas.py — ./run.sh disaggregate de punta a punta (CSV diario, sin VPS)."""
 
 import json
+import re
 from pathlib import Path
 
 import pytest
@@ -78,6 +79,8 @@ def test_salida_json_tiene_el_contrato_nilm_intervalos_v1(
 
     datos = json.loads(salida.read_text(encoding="utf-8"))
     assert datos["contrato"] == "nilm.intervalos.v1"
+    # Sin microsegundos, como en la §5: AAAA-MM-DDTHH:MM:SSZ
+    assert re.fullmatch(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z", datos["generado_en_utc"])
     assert datos["fecha_local"] == "2026-09-20"
     assert datos["ventana_utc"] == {
         "desde": "2026-09-20T03:00:00Z",
