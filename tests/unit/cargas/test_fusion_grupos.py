@@ -1,6 +1,6 @@
 """tests/unit/cargas/test_fusion_grupos.py — Fusión de grupos que son la misma máquina (datos sintéticos)."""
 
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 
 from src.application.cargas.dtos.desagregar_cargas import IntervaloMarchaDTO
 from src.application.cargas.use_cases.validar_desagregacion import (
@@ -11,8 +11,8 @@ from src.application.cargas.use_cases.validar_desagregacion import (
 
 def _it(h0: int, h1: int) -> IntervaloMarchaDTO:
     return IntervaloMarchaDTO(
-        inicio_utc=datetime(2026, 9, 20, h0, tzinfo=UTC),
-        fin_utc=datetime(2026, 9, 20, h1, tzinfo=UTC),
+        inicio_utc=datetime(2026, 9, 20, h0, tzinfo=timezone.utc),
+        fin_utc=datetime(2026, 9, 20, h1, tzinfo=timezone.utc),
         horas=float(h1 - h0),
         energia_kwh_medida=0.0,
         potencia_media_kw=0.0,

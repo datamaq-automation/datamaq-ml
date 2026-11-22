@@ -2,7 +2,7 @@
 
 import math
 from bisect import bisect_left
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 
 from src.application.cargas.dtos.desagregar_cargas import (
     AtribuirCargasBatchRequestDTO,
@@ -27,7 +27,7 @@ from src.domain.cargas.services import detectar_eventos, integrar_trapecios
 
 def _utc(instante: datetime) -> datetime:
     """Instante interno (UTC sin zona) → instante con zona UTC, para la salida."""
-    return instante.replace(tzinfo=UTC)
+    return instante.replace(tzinfo=timezone.utc)
 
 
 def umbral_minimo_kw(firmas: list[FirmaConfirmadaDTO]) -> float:
@@ -158,7 +158,7 @@ class AtribuirCargasBatchUseCase:
                 intervalos_por_firma[machine_id].append(intervalo)
 
         return AtribuirCargasBatchResponseDTO(
-            generado_en_utc=request.generado_en_utc.replace(tzinfo=UTC),
+            generado_en_utc=request.generado_en_utc.replace(tzinfo=timezone.utc),
             fecha_local=request.fecha_local,
             ventana_utc=VentanaUtcDTO(
                 desde=_utc(request.ventana_desde_utc),

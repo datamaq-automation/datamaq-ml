@@ -22,7 +22,7 @@ ausente o inválido.
 import argparse
 import json
 import uuid
-from datetime import UTC, date, datetime, time, timedelta
+from datetime import date, datetime, time, timedelta, timezone
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -61,7 +61,7 @@ def dia_local_anterior(ahora: datetime) -> date:
     Un `ahora` sin zona se toma como UTC.
     """
     if ahora.tzinfo is None:
-        ahora = ahora.replace(tzinfo=UTC)
+        ahora = ahora.replace(tzinfo=timezone.utc)
     return ahora.astimezone(ZONA).date() - timedelta(days=1)
 
 
@@ -70,8 +70,8 @@ def ventana_utc_del_dia(fecha_local: date) -> tuple[datetime, datetime]:
     desde = datetime.combine(fecha_local, time.min, tzinfo=ZONA)
     hasta = datetime.combine(fecha_local + timedelta(days=1), time.min, tzinfo=ZONA)
     return (
-        desde.astimezone(UTC).replace(tzinfo=None),
-        hasta.astimezone(UTC).replace(tzinfo=None),
+        desde.astimezone(timezone.utc).replace(tzinfo=None),
+        hasta.astimezone(timezone.utc).replace(tzinfo=None),
     )
 
 
@@ -199,7 +199,7 @@ def _ejecutar(parsed: argparse.Namespace) -> int:
         ) from error
 
     firmas = _cargar_firmas(parsed)
-    fecha = parsed.fecha or dia_local_anterior(datetime.now(UTC))
+    fecha = parsed.fecha or dia_local_anterior(datetime.now(timezone.utc))
     desde, hasta = ventana_utc_del_dia(fecha)
     mediciones = _leer_mediciones(parsed, fecha, desde, hasta)
 
@@ -220,7 +220,7 @@ def _ejecutar(parsed: argparse.Namespace) -> int:
             fecha_local=fecha,
             ventana_desde_utc=desde,
             ventana_hasta_utc=hasta,
-            generado_en_utc=datetime.now(UTC).replace(tzinfo=None, microsecond=0),
+            generado_en_utc=datetime.now(timezone.utc).replace(tzinfo=None, microsecond=0),
             mediciones=mediciones,
             firmas=firmas,
         )
