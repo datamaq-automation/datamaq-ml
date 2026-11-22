@@ -15,7 +15,7 @@ from src.application.cargas.use_cases.atribuir_cargas_batch import (
 )
 from src.domain.cargas.entities import Medicion
 
-DEVICE_ID = "a01b1642-ed29-4c3e-a793-f57de09504f8"
+DEVICE_ID = "00000000-0000-4000-8000-000000000001"
 FECHA_LOCAL = date(2026, 9, 20)
 # 2026-09-20 00:00 ART = 2026-09-20 03:00 UTC; el día termina 2026-09-21 03:00 UTC (exclusivo).
 DESDE = datetime(2026, 9, 20, 3, 0)
