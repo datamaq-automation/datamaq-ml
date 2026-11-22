@@ -52,6 +52,13 @@ class MetricasDiaDTO(BaseModel):
         default=0.0,
         description="Cuánto cambia la energía atribuida al usar P y Q frente a solo P, en %",
     )
+    pares_candidatos_fusion: int = Field(
+        default=0,
+        description="Pares de grupos que, por el criterio de fusión, son probablemente la misma máquina",
+    )
+    solapamientos_tras_fusion: int = Field(
+        default=0, description="Solapamientos que quedan después de fusionar los pares candidatos"
+    )
     solapamientos: int = Field(
         description="Pares de intervalos de cargas distintas que se superponen"
     )
