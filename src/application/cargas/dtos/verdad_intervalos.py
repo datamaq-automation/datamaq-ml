@@ -21,6 +21,16 @@ CONTRATO_VERDAD = "nilm.verdad.v1"
 ORIGEN_MEDIDO = "MEDIDO"
 TOLERANCIA_HORAS = 1e-3
 
+# Calidad del día (opcional). Catálogo cerrado: un motivo fuera de esta lista es un error de esquema.
+EstadoCalidad = Literal["OK", "DUDOSA", "NO_UTILIZABLE"]
+MotivoCalidad = Literal[
+    "huecos_seq",
+    "desvio_reloj",
+    "hora_no_confiable",
+    "sin_cobertura",
+    "abierto_al_cierre",
+]
+
 
 def _exige_utc(valor: datetime) -> datetime:
     if valor.tzinfo is None or valor.utcoffset() != timedelta(0):
@@ -78,6 +88,29 @@ class CargaVerdadDTO(BaseModel):
         return self
 
 
+class CalidadVerdadDTO(BaseModel):
+    """Qué tan confiable es la verdad del día. Si no está en el archivo, el día se asume OK."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    estado: EstadoCalidad
+    motivos: list[MotivoCalidad] = Field(default_factory=list)
+    cobertura_pct: float | None = Field(default=None, ge=0, le=100)
+
+    @model_validator(mode="after")
+    def motivos_coherentes_con_el_estado(self) -> "CalidadVerdadDTO":
+        if len(set(self.motivos)) != len(self.motivos):
+            raise ValueError("motivos repetidos")
+        if self.estado == "OK" and self.motivos:
+            raise ValueError("un día OK no lleva motivos")
+        if self.estado != "OK" and not self.motivos:
+            raise ValueError(f"un día {self.estado} tiene que decir por qué (motivos)")
+        return self
+
+
+CALIDAD_OK = CalidadVerdadDTO(estado="OK")
+
+
 class MedidorVerdadDTO(BaseModel):
     """De dónde sale la verdad. `desfase_reloj_s` es el error de reloj aplicado a la verdad, si se conoce."""
 
@@ -87,6 +120,12 @@ class MedidorVerdadDTO(BaseModel):
     etiqueta_ml: str
     fuente: Literal["simulador", "automata"]
     desfase_reloj_s: float | None = None
+    calidad: CalidadVerdadDTO | None = None
+
+    @property
+    def calidad_efectiva(self) -> CalidadVerdadDTO:
+        """Sin bloque `calidad`, el día es OK: así los archivos anteriores siguen valiendo."""
+        return self.calidad if self.calidad is not None else CALIDAD_OK
 
 
 class VerdadIntervalosDTO(BaseModel):

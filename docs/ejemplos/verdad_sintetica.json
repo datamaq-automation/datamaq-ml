@@ -4,7 +4,7 @@
   "fecha_local": "2026-09-01",
   "zona_horaria": "America/Argentina/Buenos_Aires",
   "ventana_utc": {"desde": "2026-09-01T03:00:00Z", "hasta": "2026-09-02T03:00:00Z"},
-  "medidor": {"device_id": "sintetico", "etiqueta_ml": "sintetico", "fuente": "simulador", "desfase_reloj_s": 0.0},
+  "medidor": {"device_id": "sintetico", "etiqueta_ml": "sintetico", "fuente": "simulador", "desfase_reloj_s": 0.0, "calidad": {"estado": "OK", "motivos": []}},
   "cargas": [
     {
       "nombre": "Carga 90 kW",
