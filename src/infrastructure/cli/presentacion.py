@@ -144,7 +144,13 @@ def _radio(r: IdentificarCargasResponse) -> str:
 
 
 def lineas_explicacion(r: IdentificarCargasResponse) -> list[str]:
-    """Narra los pasos del entrenamiento con sus valores. Solo lee el resultado: no cambia nada."""
+    """Narra los pasos del entrenamiento con sus valores. Solo lee el resultado: no cambia nada.
+
+    ADVERTENCIA: esta narración describe lo que hace IdentificarCargasUseCase hoy. Si ese caso de
+    uso cambia (pasos, umbral, agrupamiento), hay que actualizar esta narración. El test
+    tests/unit/test_presentacion_explica.py vigila que cada número salga del resultado, pero no que
+    el texto siga siendo verdadero.
+    """
     umbral = "sin umbral" if r.umbral.kw is None else f"{numero(r.umbral.kw)} kW"
     confianza = "confiable" if r.umbral.confiable else "no confiable"
     return [
