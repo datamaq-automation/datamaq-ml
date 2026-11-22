@@ -10,7 +10,12 @@ from datetime import datetime
 from pathlib import Path
 
 from src.domain.cargas.entities import CargaSimulada
-from src.domain.cargas.simulacion import simular_tablero
+from src.domain.cargas.simulacion import (
+    BANCO_AUTOMATICO,
+    BANCO_FIJO,
+    simular_tablero,
+    simular_tablero_con_reactiva,
+)
 from src.infrastructure.csv.medicion_repository import CsvMedicionRepository
 from src.infrastructure.csv.verdad_repository import CsvVerdadRepository
 from src.infrastructure.settings.config import get_settings
@@ -42,6 +47,19 @@ def leer_argumentos() -> argparse.Namespace:
     parser.add_argument(
         "--semilla", type=int, default=1, help="misma semilla, mismos datos (por defecto: 1)"
     )
+    parser.add_argument(
+        "--banco",
+        choices=["ninguno", BANCO_FIJO, BANCO_AUTOMATICO],
+        default="ninguno",
+        help="banco de capacitores en paralelo: fijo, automático o ninguno (por defecto: ninguno, sin reactiva)",
+    )
+    parser.add_argument(
+        "--ruido-q",
+        type=float,
+        default=0.3,
+        metavar="KVAR",
+        help="desvío del ruido de reactiva, solo con --banco (por defecto: 0,3 kVAr)",
+    )
     return parser.parse_args()
 
 
@@ -56,7 +74,12 @@ def main() -> None:
         args.ruido,
         descripcion,
     )
-    mediciones, verdad = simular_tablero(CARGAS, args.dias, args.ruido, args.semilla, INICIO)
+    if args.banco == "ninguno":
+        mediciones, verdad = simular_tablero(CARGAS, args.dias, args.ruido, args.semilla, INICIO)
+    else:
+        mediciones, verdad = simular_tablero_con_reactiva(
+            CARGAS, args.dias, args.ruido, args.ruido_q, args.semilla, INICIO, banco=args.banco
+        )
     CsvMedicionRepository(Path(settings.MEDICIONES_CSV_DIR)).guardar(args.nombre, mediciones)
     CsvVerdadRepository(Path(settings.VERDAD_DIR)).guardar(args.nombre, verdad)
 

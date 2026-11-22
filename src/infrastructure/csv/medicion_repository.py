@@ -79,8 +79,20 @@ class CsvMedicionRepository:
         """Escribe <medidor>.csv con el mismo formato que lee listar (lo usa el simulador)."""
         self._carpeta.mkdir(parents=True, exist_ok=True)
         destino = self._carpeta / f"{medidor}.csv"
+        con_reactiva = any(m.reactiva_kvar is not None for m in mediciones)
         with destino.open("w", newline="", encoding="utf-8") as archivo:
             escritor = csv.writer(archivo)
-            escritor.writerow(["instante", "potencia_kw"])
-            escritor.writerows((m.instante.isoformat(), m.potencia_kw) for m in mediciones)
+            if con_reactiva:
+                escritor.writerow(["instante", "potencia_kw", "reactiva_kvar"])
+                escritor.writerows(
+                    (
+                        m.instante.isoformat(),
+                        m.potencia_kw,
+                        "" if m.reactiva_kvar is None else m.reactiva_kvar,
+                    )
+                    for m in mediciones
+                )
+            else:
+                escritor.writerow(["instante", "potencia_kw"])
+                escritor.writerows((m.instante.isoformat(), m.potencia_kw) for m in mediciones)
         logger.info("%d mediciones guardadas en %s", len(mediciones), destino)
