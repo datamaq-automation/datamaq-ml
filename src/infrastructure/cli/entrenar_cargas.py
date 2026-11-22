@@ -177,6 +177,34 @@ def _error_de_rango(args: argparse.Namespace) -> list[str] | None:
     return None
 
 
+def _error_de_medidores(
+    args: argparse.Namespace, disponibles: list[str], entrada: Path
+) -> int | None:
+    """Código de salida si no hay mediciones o si piden un medidor que no existe; None si todo está bien."""
+    if not disponibles:
+        imprimir_error(
+            error_que_ensena(
+                f"No encuentro mediciones en {entrada}.",
+                "el CLI lee un CSV por medidor en esa carpeta y no hay ninguno.",
+                "generá datos de prueba con ./run.sh simulate, o copiá el CSV del medidor a esa "
+                "carpeta.",
+                "README.md, sección de datos",
+            )
+        )
+        return CODIGO_DATOS
+    desconocidos = [m for m in args.medidores if m not in disponibles]
+    if desconocidos:
+        imprimir_error(
+            error_que_ensena(
+                f"Medidor desconocido: {', '.join(desconocidos)}.",
+                "el nombre tiene que coincidir con un CSV de la carpeta, sin la extensión .csv.",
+                f"usá uno de estos: {', '.join(disponibles)}.",
+            )
+        )
+        return CODIGO_ARGUMENTOS
+    return None
+
+
 def main() -> int:
     args = leer_argumentos()
     if (error := _error_de_rango(args)) is not None:
@@ -202,27 +230,8 @@ def main() -> int:
         min_eventos=settings.NILM_MIN_EVENTOS,
     )
     disponibles = repositorio.medidores()
-    if not disponibles:
-        imprimir_error(
-            error_que_ensena(
-                f"No encuentro mediciones en {entrada}.",
-                "el CLI lee un CSV por medidor en esa carpeta y no hay ninguno.",
-                "generá datos de prueba con ./run.sh simulate, o copiá el CSV del medidor a esa "
-                "carpeta.",
-                "README.md, sección de datos",
-            )
-        )
-        return CODIGO_DATOS
-    desconocidos = [m for m in args.medidores if m not in disponibles]
-    if desconocidos:
-        imprimir_error(
-            error_que_ensena(
-                f"Medidor desconocido: {', '.join(desconocidos)}.",
-                "el nombre tiene que coincidir con un CSV de la carpeta, sin la extensión .csv.",
-                f"usá uno de estos: {', '.join(disponibles)}.",
-            )
-        )
-        return CODIGO_ARGUMENTOS
+    if (error := _error_de_medidores(args, disponibles, entrada)) is not None:
+        return error
     medidores = args.medidores or disponibles
 
     logger.info(describir_nilm(settings))
