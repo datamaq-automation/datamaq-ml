@@ -101,6 +101,10 @@ APRENDIZAJE
 EVALUACIÓN
   evaluate       compara lo encontrado con la verdad conocida
 
+ENSEÑANZA
+  demo           recorrido guiado sobre datos sintéticos (--rapido sin pausas)
+  glosario       define un término del módulo (./run.sh glosario Otsu)
+
 SERVIDOR Y DESARROLLO
   dev, start     levantan el servidor FastAPI (start dev | start prod)
   test, gauntlet, audit, lint, format, install
@@ -126,7 +130,9 @@ train · identifica las cargas sin etiquetas (aprendizaje no supervisado)
   Parte de:  un CSV de mediciones por medidor en data/input/
   Hace:      detecta saltos de potencia → elige el umbral → agrupa por tamaño → resume
   Ejercicio: E6 (agrupamiento por densidad)
+  Opciones:  --explica (narra cada paso) · --grafico (distribución de saltos en texto)
   Ejemplos:  ./run.sh train sintetico
+             ./run.sh train sintetico --explica --grafico
              ./run.sh train sintetico --desde AAAA-MM-DD --hasta AAAA-MM-DD
 TXT
             ;;
@@ -146,6 +152,22 @@ evaluate · compara lo identificado con la verdad conocida
   Hace:      calcula sensibilidad y precisión por carga
   Ejercicio: E5 (separación entre entrenamiento y verdad)
   Ejemplo:   ./run.sh evaluate
+TXT
+            ;;
+        demo)
+            cat <<'TXT'
+demo · recorrido guiado sobre datos sintéticos (para la primera clase)
+  Hace:      simulate → train --explica --grafico → evaluate → supervise
+  Pausas:    un ENTER por paso; con --rapido corre sin pausas
+  Ejemplo:   ./run.sh demo --rapido
+TXT
+            ;;
+        glosario)
+            cat <<'TXT'
+glosario · define un término del módulo con su ejemplo
+  Parte de:  docs/glosario.md
+  Ejemplos:  ./run.sh glosario            (lista los términos)
+             ./run.sh glosario Otsu
 TXT
             ;;
         disaggregate)
@@ -171,6 +193,63 @@ imprimir_error_comando() {
     echo "✘ ERROR  $1" >&2
     echo "  Por qué:  $2" >&2
     echo "  Cómo:     $3" >&2
+}
+
+buscar_glosario() {
+    local archivo="${GLOSARIO_PATH:-docs/glosario.md}"
+    if [[ ! -f "$archivo" ]]; then
+        imprimir_error_comando "No encuentro el glosario ($archivo)." \
+            "el glosario llega con el PR #32 de datamaq-ml, que puede no estar mergeado." \
+            "pedí el merge del PR #32, o corré este comando desde la rama docs/issue-28-glosario."
+        return 1
+    fi
+    local termino="${1:-}"
+    if [[ -z "$termino" ]]; then
+        echo "Términos del glosario (./run.sh glosario <término> para uno):"
+        grep '^\*\*' "$archivo" | sed -E 's/^\*\*([^*]+)\*\*.*/  \1/'
+        return 0
+    fi
+    local coincidencias
+    coincidencias="$(grep -i -F -- "$termino" "$archivo" | grep '^\*\*' || true)"
+    if [[ -z "$coincidencias" ]]; then
+        imprimir_error_comando "No tengo el término «$termino»." \
+            "el glosario no lo define todavía." \
+            "corré ./run.sh glosario para ver la lista completa."
+        return 1
+    fi
+    echo "$coincidencias" | sed -E 's/\*\*//g' | fold -s -w 78
+}
+
+correr_demo() {
+    local rapido=0
+    [[ "${1:-}" == "--rapido" ]] && rapido=1
+    local pasos=(
+        "simulate --dias 14|crear un tablero con cargas conocidas"
+        "train sintetico --explica --grafico|encontrar las cargas sin etiquetas y explicar cómo"
+        "evaluate|comparar lo encontrado con la verdad conocida"
+        "supervise|aprender con un árbol de decisión y leer sus reglas"
+    )
+    local total=${#pasos[@]} n=0 paso comando texto
+    for paso in "${pasos[@]}"; do
+        n=$((n + 1))
+        comando="${paso%%|*}"
+        texto="${paso#*|}"
+        echo ""
+        echo "── Paso $n/$total · $texto"
+        if (( ! rapido )) && [[ -t 0 ]]; then
+            read -r -p "   ENTER para correr: ./run.sh $comando " _
+        fi
+        # El comando se separa en palabras a propósito: son argumentos de run.sh.
+        # shellcheck disable=SC2086
+        if ! bash "$SCRIPT_DIR/run.sh" $comando; then
+            imprimir_error_comando "Falló el paso $n/$total (./run.sh $comando)." \
+                "el mensaje de arriba dice el motivo." \
+                "corré ./run.sh ayuda ${comando%% *} y revisá los datos de entrada."
+            return 1
+        fi
+    done
+    echo ""
+    echo "✔ OK  Recorrido completo. Siguiente paso: ./run.sh ayuda train"
 }
 
 COMMAND="${1:-menu}"
@@ -279,6 +358,13 @@ case "$COMMAND" in
         ;;
     ayuda)
         mostrar_ayuda_comando "${2:-}" || exit 1
+        ;;
+    demo)
+        ensure_venv
+        correr_demo "${2:-}"
+        ;;
+    glosario)
+        buscar_glosario "${*:2}"
         ;;
     *)
         echo "❌ Comando desconocido: $COMMAND"
