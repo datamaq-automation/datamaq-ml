@@ -20,6 +20,32 @@ def test_listar_filtra_por_rango(tmp_path: Path) -> None:
     assert mediciones[0].instante == datetime(2026, 9, 20)
 
 
+def test_listar_sin_columna_reactiva_es_compatible(tmp_path: Path) -> None:
+    """Un CSV viejo con solo instante,potencia_kw sigue funcionando; la reactiva es None."""
+    (tmp_path / "planta.csv").write_text(
+        "instante,potencia_kw\n2026-09-20T00:00:00,1.5\n", encoding="utf-8"
+    )
+    (medicion,) = CsvMedicionRepository(tmp_path).listar(
+        "planta", datetime(2026, 9, 20), datetime(2026, 9, 21)
+    )
+    assert medicion.reactiva_kvar is None
+
+
+def test_listar_lee_columna_reactiva_opcional(tmp_path: Path) -> None:
+    """Con la columna reactiva_kvar se lee en kVAr; una celda vacía queda como None."""
+    (tmp_path / "planta.csv").write_text(
+        "instante,potencia_kw,reactiva_kvar\n"
+        "2026-09-20T00:00:00,1.5,0.8\n"
+        "2026-09-20T00:05:00,2.5,\n",
+        encoding="utf-8",
+    )
+    mediciones = CsvMedicionRepository(tmp_path).listar(
+        "planta", datetime(2026, 9, 20), datetime(2026, 9, 21)
+    )
+    assert [m.reactiva_kvar for m in mediciones] == [0.8, None]
+    assert [m.potencia_kw for m in mediciones] == [1.5, 2.5]
+
+
 def test_listar_rechaza_medidores_que_no_son_csv_de_la_carpeta(tmp_path: Path) -> None:
     (tmp_path / "planta.csv").write_text("instante,potencia_kw\n", encoding="utf-8")
     repo = CsvMedicionRepository(tmp_path)

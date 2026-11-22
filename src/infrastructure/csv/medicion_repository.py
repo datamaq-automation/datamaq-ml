@@ -8,8 +8,14 @@ from src.domain.cargas.entities import Medicion
 from src.infrastructure.settings.logger import logger
 
 
+def leer_reactiva_kvar(fila: dict[str, str]) -> float | None:
+    """Reactiva (kVAr) de una fila CSV. La columna reactiva_kvar es opcional: sin ella, o vacía, es None."""
+    valor = fila.get("reactiva_kvar") or ""
+    return float(valor) if valor.strip() else None
+
+
 class CsvMedicionRepository:
-    """Implementa MedicionRepository sobre CSV con columnas instante,potencia_kw (ya en kW)."""
+    """Implementa MedicionRepository sobre CSV con instante,potencia_kw (kW) y reactiva_kvar opcional."""
 
     def __init__(self, carpeta: Path) -> None:
         self._carpeta = carpeta
@@ -31,6 +37,7 @@ class CsvMedicionRepository:
                 Medicion(
                     instante=datetime.fromisoformat(f["instante"]),
                     potencia_kw=float(f["potencia_kw"]),
+                    reactiva_kvar=leer_reactiva_kvar(f),
                 )
                 for f in csv.DictReader(archivo)
             )
