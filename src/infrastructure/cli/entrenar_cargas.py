@@ -186,6 +186,35 @@ def _error_de_medidores(
     return None
 
 
+def _entrenar_medidores(
+    caso_de_uso: IdentificarCargasUseCase,
+    resultados: CsvCargaRepository,
+    medidores: list[str],
+    args: argparse.Namespace,
+) -> int:
+    """Entrena cada medidor. Un CSV ilegible (valor no numérico, columna que falta) es un error de datos."""
+    try:
+        for medidor in medidores:
+            r = caso_de_uso.execute(
+                IdentificarCargasRequest(medidor=medidor, desde=args.desde, hasta=args.hasta)
+            )
+            resultados.guardar(medidor, [_carga(c) for c in r.cargas])
+            resultados.guardar_entrenamiento(medidor, _resumen_entrenamiento(r))
+            mostrar(lineas_resumen_entrenamiento(r, medidor))
+    except (ValueError, KeyError) as error:
+        imprimir_error(
+            error_que_ensena(
+                "No pude leer las mediciones.",
+                f"el CSV tiene un dato que no se puede interpretar ({error}).",
+                "revisá que las columnas sean instante y potencia_kw, y que la potencia sea un "
+                "número.",
+                "README.md, sección de datos",
+            )
+        )
+        return CODIGO_DATOS
+    return CODIGO_OK
+
+
 def main() -> int:
     args = leer_argumentos()
     if (error := _error_de_rango(args)) is not None:
@@ -222,14 +251,7 @@ def main() -> int:
         len(disponibles),
         entrada,
     )
-    for medidor in medidores:
-        r = caso_de_uso.execute(
-            IdentificarCargasRequest(medidor=medidor, desde=args.desde, hasta=args.hasta)
-        )
-        resultados.guardar(medidor, [_carga(c) for c in r.cargas])
-        resultados.guardar_entrenamiento(medidor, _resumen_entrenamiento(r))
-        mostrar(lineas_resumen_entrenamiento(r, medidor))
-    return CODIGO_OK
+    return _entrenar_medidores(caso_de_uso, resultados, medidores, args)
 
 
 if __name__ == "__main__":

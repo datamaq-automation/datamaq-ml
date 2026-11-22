@@ -102,3 +102,14 @@ def test_run_sh_propaga_el_codigo_al_shell(tmp_path: Path) -> None:
     )
     assert resultado.returncode == CODIGO_ARGUMENTOS
     assert "Medidor desconocido" in resultado.stderr
+
+
+def test_csv_ilegible_devuelve_datos_invalidos(
+    entorno: Path, monkeypatch: pytest.MonkeyPatch, capsys
+) -> None:
+    # Una potencia que no es número: antes salía con traza y código 1.
+    (entorno / "rota.csv").write_text(
+        "instante,potencia_kw\n2026-09-20T00:00:00,abc\n2026-09-20T00:05:00,120\n", encoding="utf-8"
+    )
+    _argv(monkeypatch, "rota")
+    assert main() == CODIGO_DATOS
