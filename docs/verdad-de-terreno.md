@@ -17,6 +17,7 @@ Es la misma forma que `nilm.intervalos.v1` (la salida del batch), con estas dife
 | `potencia_media_kw` / `delta_reactiva_kvar` | presentes | opcionales |
 | `medidor.fuente` | no existe | `"simulador"` o `"automata"` |
 | `medidor.desfase_reloj_s` | no existe | error de reloj del autómata, si se conoce |
+| `medidor.calidad` | no existe | opcional: `estado`, `motivos`, `cobertura_pct` (ver abajo) |
 | Esquema | no estricto | **estricto**: una clave fuera del contrato es error |
 
 El resto es igual: `ventana_utc` (desde inclusive, hasta exclusive), `cargas[]` con `nombre` e `intervalos[]`,
@@ -33,6 +34,37 @@ Reglas del esquema, todas verificadas por tests (`tests/unit/test_verdad_interva
 
 `docs/ejemplos/verdad_sintetica.json` tiene dos máquinas y dos marchas, con energía porque viene del simulador.
 Un test lo valida contra el esquema, así que el ejemplo no puede quedar desactualizado.
+
+## Calidad del día (`medidor.calidad`, opcional)
+
+La fuente de la verdad no siempre es confiable. Un contactor puede tener huecos de telemetría, un reloj desfasado o
+un intervalo abierto al cierre del día. Para eso, `medidor` acepta un bloque opcional `calidad`:
+
+| Campo | Valores | Significado |
+|---|---|---|
+| `estado` | `OK`, `DUDOSA`, `NO_UTILIZABLE` | Qué tan confiable es la verdad del día. |
+| `motivos` | lista de un catálogo cerrado (ver abajo) | Por qué no es `OK`. Vacía si el estado es `OK`. |
+| `cobertura_pct` | 0 a 100, opcional | Porcentaje del día con telemetría. |
+
+Motivos del catálogo cerrado: `huecos_seq`, `desvio_reloj`, `hora_no_confiable`, `sin_cobertura`,
+`abierto_al_cierre`. Cualquier otro valor es un error de esquema.
+
+Reglas del bloque (verificadas por `tests/unit/test_verdad_calidad.py`):
+- un día `OK` no lleva motivos; un día `DUDOSA` o `NO_UTILIZABLE` tiene que decir por qué;
+- no se repiten motivos; `cobertura_pct` está entre 0 y 100;
+- **si el bloque falta, el día se asume `OK`**: los archivos anteriores siguen valiendo sin cambios.
+
+### Qué hace el evaluador con cada estado
+
+| Estado | Por defecto | Con `--incluir-dudosos` / `--incluir-no-utilizables` |
+|---|---|---|
+| `OK` | Se evalúa y cuenta en el resumen. | — |
+| `DUDOSA` | Se evalúa y queda **marcada**; no cuenta en el resumen. | Cuenta en el resumen. |
+| `NO_UTILIZABLE` | Se **rechaza**: no se evalúa. | Se evalúa y cuenta en el resumen. |
+
+El log de `evaluar_verdad` reporta cuántos días se excluyeron y por qué motivo. Las filas del
+`--salida-json` llevan dos campos nuevos: `calidad_dia` y `en_resumen`. Los demás campos no cambian. Un día
+rechazado no tiene filas en el detalle. El código de salida sigue siendo `0`: un día excluido no es un error.
 
 ## Cómo se obtiene
 

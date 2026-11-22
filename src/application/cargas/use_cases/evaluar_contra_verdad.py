@@ -4,6 +4,9 @@ Entrada: la salida del batch (nilm.intervalos.v1) y la verdad (nilm.verdad.v1). 
 nombre: el nombre del catálogo de firmas tiene que coincidir con el de la verdad.
 """
 
+from collections import Counter
+from dataclasses import dataclass, field
+
 from src.application.cargas.dtos.desagregar_cargas import AtribuirCargasBatchResponseDTO, CargaDTO
 from src.application.cargas.dtos.verdad_intervalos import CargaVerdadDTO, VerdadIntervalosDTO
 from src.domain.cargas.evaluacion_verdad import (
@@ -55,3 +58,51 @@ def evaluar_contra_verdad(
         energias_inferidas=_energias_inferidas(inferido.cargas),
         energias_verdaderas=_energias_verdaderas(verdad.cargas),
     )
+
+
+@dataclass(frozen=True)
+class EvaluacionDia:
+    """Decisión sobre un día según su calidad, con sus resultados si se evaluó.
+
+    - OK: se evalúa y cuenta en el resumen.
+    - DUDOSA: se evalúa y queda marcada; fuera del resumen salvo `incluir_dudosos`.
+    - NO_UTILIZABLE: se rechaza (no se evalúa) salvo `incluir_no_utilizables`.
+    """
+
+    estado: str
+    motivos: tuple[str, ...]
+    evaluado: bool
+    en_resumen: bool
+    resultados: list[ResultadoMaquina] = field(default_factory=list)
+
+
+def evaluar_dia(
+    inferido: AtribuirCargasBatchResponseDTO,
+    verdad: VerdadIntervalosDTO,
+    tolerancia_s: float = TOLERANCIA_EVENTO_S,
+    incluir_dudosos: bool = False,
+    incluir_no_utilizables: bool = False,
+) -> EvaluacionDia:
+    calidad = verdad.medidor.calidad_efectiva
+    motivos = tuple(calidad.motivos)
+    if calidad.estado == "NO_UTILIZABLE" and not incluir_no_utilizables:
+        return EvaluacionDia(calidad.estado, motivos, evaluado=False, en_resumen=False)
+    resultados = evaluar_contra_verdad(inferido, verdad, tolerancia_s)
+    if calidad.estado == "OK":
+        en_resumen = True
+    elif calidad.estado == "DUDOSA":
+        en_resumen = incluir_dudosos
+    else:
+        en_resumen = True  # NO_UTILIZABLE evaluado a pedido: el pedido lo incluye.
+    return EvaluacionDia(calidad.estado, motivos, True, en_resumen, resultados)
+
+
+def resumen_exclusiones(evaluaciones: list[EvaluacionDia]) -> dict[str, object]:
+    """Cuántos días no se evaluaron, y por qué motivo (estado y motivos del día)."""
+    rechazados = [e for e in evaluaciones if not e.evaluado]
+    por_motivo = Counter(m for e in rechazados for m in e.motivos)
+    return {
+        "dias": len(evaluaciones),
+        "excluidos": len(rechazados),
+        "por_motivo": dict(sorted(por_motivo.items())),
+    }
