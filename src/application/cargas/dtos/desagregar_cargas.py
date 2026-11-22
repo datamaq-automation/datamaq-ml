@@ -51,6 +51,16 @@ class ParametrosBancoDTO(BaseModel):
     peso_q: float = Field(default=1.0, ge=0.0)
 
 
+class ParametrosMotorDTO(BaseModel):
+    """Parámetros de detección y emparejamiento del motor. Los defaults reproducen el comportamiento previo.
+
+    `muestras_debounce`: 1 no filtra nada; 2 descarta picos de una lectura (con costo: también ciclos reales
+    de menos de 2 muestras). Ver el informe de debounce en el PR.
+    """
+
+    muestras_debounce: int = Field(default=1, ge=1)
+
+
 class AtribuirCargasBatchRequestDTO(BaseModel):
     """Petición de desagregación de un día cerrado de un medidor.
 
@@ -68,6 +78,7 @@ class AtribuirCargasBatchRequestDTO(BaseModel):
     mediciones: list[Medicion] = Field(default_factory=list)
     firmas: list[FirmaConfirmadaDTO] = Field(default_factory=list)
     parametros_banco: ParametrosBancoDTO = Field(default_factory=ParametrosBancoDTO)
+    parametros_motor: ParametrosMotorDTO = Field(default_factory=ParametrosMotorDTO)
 
 
 class IntervaloMarchaDTO(BaseModel):

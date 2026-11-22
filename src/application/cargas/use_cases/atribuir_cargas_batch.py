@@ -116,7 +116,11 @@ class AtribuirCargasBatchUseCase:
             # Las conmutaciones de banco no son cargas: no entran en la atribución.
             eventos = [
                 e
-                for e in detectar_eventos(mediciones, umbral_kw=umbral_minimo_kw(request.firmas))
+                for e in detectar_eventos(
+                    mediciones,
+                    umbral_kw=umbral_minimo_kw(request.firmas),
+                    muestras_persistencia=request.parametros_motor.muestras_debounce,
+                )
                 if not es_evento_de_banco(e, params.umbral_p_kw, params.umbral_q_kvar)
             ]
             for machine_id, intervalo in self._emparejar_eventos(
