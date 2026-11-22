@@ -84,6 +84,10 @@ class AtribuirCargasBatchRequestDTO(BaseModel):
     firmas: list[FirmaConfirmadaDTO] = Field(default_factory=list)
     parametros_banco: ParametrosBancoDTO = Field(default_factory=ParametrosBancoDTO)
     parametros_motor: ParametrosMotorDTO = Field(default_factory=ParametrosMotorDTO)
+    umbral_deteccion_kw: float | None = Field(
+        default=None,
+        description="Umbral |ΔP| de detección; None = el mínimo de las firmas (comportamiento previo)",
+    )
 
 
 class IntervaloMarchaDTO(BaseModel):

@@ -5,7 +5,7 @@ from bisect import bisect_left
 from collections import defaultdict
 from datetime import datetime
 from itertools import pairwise
-from statistics import pstdev
+from statistics import median, pstdev
 
 from src.domain.cargas.entities import (
     BarraHistograma,
@@ -169,6 +169,14 @@ def estimar_min_eventos(dias: float, minimo: int = 3) -> int:
     return max(minimo, round(dias))
 
 
+def _ratio_qp_mediana(grupo: list[EventoCarga]) -> float | None:
+    """Mediana de |ΔQ|/|ΔP| del grupo: la forma del equipo (cuánta reactiva por kW). None sin reactiva."""
+    if not any(e.delta_kvar for e in grupo):
+        return None
+    ratios = [abs(e.delta_kvar) / abs(e.delta_kw) for e in grupo if e.delta_kw != 0]
+    return round(median(ratios), 3) if ratios else None
+
+
 def resumir_cargas(eventos: list[EventoCarga], etiquetas: list[int]) -> list[Carga]:
     """Convierte eventos etiquetados en cargas candidatas, de mayor a menor potencia."""
     if len(eventos) != len(etiquetas):
@@ -194,6 +202,7 @@ def resumir_cargas(eventos: list[EventoCarga], etiquetas: list[int]) -> list[Car
                 dispersion_kw=round(pstdev(abs(e.delta_kw) for e in grupo), 1),
                 reactiva_tipica_kvar=reactiva_tipica,
                 cos_phi_estimado=cos_phi,
+                ratio_qp_mediana=_ratio_qp_mediana(grupo),
             )
         )
     return sorted(cargas, key=lambda c: c.potencia_tipica_kw, reverse=True)

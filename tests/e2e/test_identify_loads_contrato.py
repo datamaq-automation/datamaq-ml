@@ -30,6 +30,9 @@ def test_contrato_de_la_respuesta() -> None:
         "serie",
         "detalle_eventos",
         "histograma",
+        # Aditivos del issue #24: régimen de los saltos y modos separables (no rompen a quien ya consume).
+        "sin_modos_separables",
+        "modos",
     }
 
 
@@ -44,4 +47,5 @@ def test_contrato_de_cada_carga() -> None:
         "dispersion_kw",
         "reactiva_tipica_kvar",
         "cos_phi_estimado",
+        "ratio_qp_mediana",
     }

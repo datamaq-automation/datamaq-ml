@@ -49,6 +49,7 @@ class Carga:
     dispersion_kw: float = 0.0
     reactiva_tipica_kvar: float = 0.0
     cos_phi_estimado: float | None = None
+    ratio_qp_mediana: float | None = None
 
     @property
     def ciclos(self) -> int:

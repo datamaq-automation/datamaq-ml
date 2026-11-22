@@ -76,6 +76,13 @@ def buscar_firma_compatible(
     return firma, dist_p
 
 
+def _umbral_de_deteccion(request: AtribuirCargasBatchRequestDTO) -> float:
+    """El umbral explícito del entrenamiento, o el mínimo de las firmas (comportamiento previo)."""
+    if request.umbral_deteccion_kw is not None:
+        return request.umbral_deteccion_kw
+    return umbral_minimo_kw(request.firmas)
+
+
 def tolerancia_efectiva(firma: FirmaConfirmadaDTO, params: ParametrosMotorDTO) -> float:
     """Tolerancia que usa el motor para la firma.
 
@@ -147,7 +154,7 @@ class AtribuirCargasBatchUseCase:
                 e
                 for e in detectar_eventos(
                     mediciones,
-                    umbral_kw=umbral_minimo_kw(request.firmas),
+                    umbral_kw=_umbral_de_deteccion(request),
                     muestras_persistencia=request.parametros_motor.muestras_debounce,
                 )
                 if not es_evento_de_banco(e, params.umbral_p_kw, params.umbral_q_kvar)

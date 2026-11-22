@@ -50,6 +50,7 @@ def test_identify_loads_devuelve_cargas() -> None:
                 "dispersion_kw": 0.0,
                 "reactiva_tipica_kvar": 0.0,
                 "cos_phi_estimado": 1.0,
+                "ratio_qp_mediana": None,
                 "potencia_kw": 90.0,
             }
         ]
@@ -58,6 +59,7 @@ def test_identify_loads_devuelve_cargas() -> None:
             "automatico": False,
             "separacion": None,
             "confiable": None,
+            "regimen": None,
         }
         assert sum(b["cantidad"] for b in body["histograma"]) == 2
         assert (body["encendidos"], body["apagados"], body["eventos_sin_grupo"]) == (1, 1, 0)

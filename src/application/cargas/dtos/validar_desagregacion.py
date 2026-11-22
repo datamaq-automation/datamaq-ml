@@ -29,6 +29,10 @@ class MetricasDiaDTO(BaseModel):
         description="Más huecos de muestreo que el umbral del día: resultados menos confiables",
     )
     umbral_kw: float
+    sin_modos_separables: bool = Field(
+        default=False,
+        description="η bajo y sin valle: el día no se atribuye por clústeres (no hay firmas)",
+    )
     energia_medida_kwh: float
     eventos: int
     encendidos: int
