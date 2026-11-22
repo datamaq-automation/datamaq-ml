@@ -30,6 +30,12 @@ jobs:
         with:
           python-version: '3.12'
 
+      # El runner reutiliza el workspace entre runs, así que un .venv de un run anterior puede
+      # quedar en otra versión de Python. run.sh (ensure_venv) solo crea el venv si no existe,
+      # así que sin este paso los tests podrían correr con un intérprete distinto de 3.12.
+      - name: Descartar .venv previo
+        run: rm -rf .venv
+
       - name: Instalar dependencias de desarrollo
         run: ./run.sh install
 
