@@ -1,5 +1,7 @@
 # Cuaderno de trabajo — Identificar equipos a partir del consumo total
 
+> **Estado (2026-11-22).** Las actividades que mencionan `planta_2_a` y `planta_2_b` usan datos reales de una planta. Esos datos no se entregan a estudiantes hasta contar con el consentimiento escrito de la empresa. Mientras tanto, hacé las actividades con el tablero sintético (`./run.sh simulate`) y seguí con `docs/material-ensenanza/ejercicios.md`.
+
 En este cuaderno vas a descubrir **qué equipos funcionan en una fábrica** mirando solamente el consumo total de un tablero eléctrico. Vas a usar un algoritmo de **aprendizaje no supervisado**, vas a medir qué tan bien funciona y vas a ver dónde falla.
 
 > **Este cuaderno es parte del curso "Procesamiento de Aprendizaje Automático"** de https://isftn199.com.ar/cursos/procesamiento-aprendizaje-automatico  

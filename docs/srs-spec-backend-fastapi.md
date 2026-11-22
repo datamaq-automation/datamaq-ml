@@ -14,7 +14,7 @@
 ## 1. Contexto Estratégico & Propuesta de Valor
 
 ### 1.1. Foco Estratégico & Alcance
-* **Mercado Objetivo:** Plantas industriales PyME con medidores de energía trifásicos ya instalados (caso piloto: planta UPP).
+* **Mercado Objetivo:** Plantas industriales PyME con medidores de energía trifásicos ya instalados (caso piloto: una planta papelera).
 * **Buyer Persona (Decisor / Cliente Ideal):** Gerente de planta / responsable de mantenimiento que busca reducir el costo energético.
 * **User Persona (Operador / Usuario Final):** Técnico de mantenimiento que consulta qué equipos estuvieron encendidos y cuándo.
 * **Alcance Geográfico & Modalidad:** Servicio local (proyecto educativo) que lee datasets CSV versionados en `data/input/`. Los datos se extrajeron una vez de la telemetría de la planta y se anonimizaron.
@@ -23,7 +23,7 @@
 ### 1.2. Pilares de Valor de la Solución
 | Pilar | Enfoque | Implementación en este Sistema |
 | :--- | :--- | :--- |
-| **1. Activos & Entorno Operativo** | Infraestructura física, dispositivos, hardware o fuentes de datos base. | Dos tableros de la planta UPP, anonimizados como `planta_2_a` y `planta_2_b`: potencia activa total cada 5 min, en kW (`data/input/<medidor>.csv`, columnas `instante,potencia_kw`) |
+| **1. Activos & Entorno Operativo** | Infraestructura física, dispositivos, hardware o fuentes de datos base. | Dos tableros de una planta papelera, seudonimizados como `Trafo 1` y `Trafo 2`: potencia activa total cada 5 min, en kW (`data/input/<medidor>.csv`, columnas `instante,potencia_kw`) |
 | **2. Software & Lógica de Negocio** | Captura, procesamiento en tiempo real, persistencia y APIs. | Lectura de series CSV → detección de eventos ΔP → agrupamiento (DBSCAN) en cargas → API REST `/identify-loads`, CLI y resultados en `data/output/` |
 | **3. Impacto Económico & ROI** | Optimización de costos, generación de ingresos o eficiencia operativa. | Atribuir consumo por equipo (ej. carga ON/OFF de ~90 kW, ≈19 ciclos/día) para detectar usos ociosos |
 
@@ -39,7 +39,7 @@
 ### 2.1. Matriz del Business Model Canvas
 | Bloque Canvas | Definición Estratégica | Componentes Clave en el Software |
 | :--- | :--- | :--- |
-| **1. Socios Clave (KP)** | Planta piloto UPP y proveedor de medidores | Datasets anonimizados en `data/input/` |
+| **1. Socios Clave (KP)** | Planta piloto (papelera) y proveedor de medidores | Datasets anonimizados en `data/input/` |
 | **2. Actividades Clave (KA)** | Desagregación de consumo (NILM) | Casos de uso `DetectarEventos`, `IdentificarCargas` |
 | **3. Recursos Clave (KR)** | Series históricas de telemetría | `CsvMedicionRepository` sobre `data/input/*.csv` |
 | **4. Propuesta de Valor (VP)** | Saber qué equipo consume sin instalar medidores por equipo | `GET /api/v1/identify-loads` |
