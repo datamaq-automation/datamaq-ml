@@ -10,7 +10,10 @@ from __future__ import annotations
 import os
 import sys
 
-from src.application.cargas.dtos.identificar_cargas import IdentificarCargasResponse
+from src.application.cargas.dtos.identificar_cargas import (
+    BarraHistogramaResponse,
+    IdentificarCargasResponse,
+)
 from src.infrastructure.settings.logger import canal_terminal
 
 ANCHO_POR_DEFECTO = 80
@@ -107,12 +110,12 @@ def veredicto_entrenamiento(r: IdentificarCargasResponse) -> tuple[str, str]:
     return "ok", f"se identificaron {len(r.cargas)} cargas con todos sus eventos agrupados."
 
 
-def siguiente_paso_entrenamiento(r: IdentificarCargasResponse) -> str:
+def siguiente_paso_entrenamiento(r: IdentificarCargasResponse, medidor: str) -> str:
     """El comando que conviene correr después, según el veredicto. Solo comandos que existen."""
     nivel, _ = veredicto_entrenamiento(r)
     if nivel == "ok":
         return "./run.sh supervise   (aprender con la verdad simulada)"
-    return "./run.sh ayuda train   (cómo cambiar el umbral)"
+    return f"./run.sh train {medidor} --grafico   (ver dónde caen los saltos)"
 
 
 def lineas_resumen_entrenamiento(r: IdentificarCargasResponse, medidor: str) -> list[str]:
@@ -129,7 +132,7 @@ def lineas_resumen_entrenamiento(r: IdentificarCargasResponse, medidor: str) -> 
     lineas += [
         f"Umbral · radio · mínimo: {umbral} · {_radio(r)} · {r.agrupamiento.min_eventos} eventos",
         veredicto(nivel, texto),
-        f"Siguiente paso: {siguiente_paso_entrenamiento(r)}",
+        f"Siguiente paso: {siguiente_paso_entrenamiento(r, medidor)}",
     ]
     return lineas
 
@@ -138,3 +141,55 @@ def _radio(r: IdentificarCargasResponse) -> str:
     return (
         "sin radio" if r.agrupamiento.radio_kw is None else f"{numero(r.agrupamiento.radio_kw)} kW"
     )
+
+
+def lineas_explicacion(r: IdentificarCargasResponse) -> list[str]:
+    """Narra los pasos del entrenamiento con sus valores. Solo lee el resultado: no cambia nada."""
+    umbral = "sin umbral" if r.umbral.kw is None else f"{numero(r.umbral.kw)} kW"
+    confianza = "confiable" if r.umbral.confiable else "no confiable"
+    return [
+        "",
+        "Cómo llegué a este resultado (--explica)",
+        f"Paso 1 · Saltos: hay {numero(r.mediciones, 0)} mediciones y {r.eventos} eventos",
+        "  (|ΔP|: cambio de potencia entre dos mediciones seguidas).",
+        f"Paso 2 · Umbral: {umbral}, con el método de Otsu (η = {_eta(r)}, {confianza}).",
+        "  Otsu elige el corte que mejor separa ruido y eventos. η mide esa separación.",
+        f"Paso 3 · Agrupamiento: eventos de magnitud parecida (a menos de {_radio(r)}) se",
+        f"  juntan. Un grupo con al menos {r.agrupamiento.min_eventos} eventos es una carga.",
+        f"  Quedan {r.eventos_sin_grupo} eventos sin grupo (ruido).",
+        f"Paso 4 · Resumen: {_plural(len(r.cargas), 'carga', 'cargas')}. Glosario: docs/glosario.md.",
+    ]
+
+
+def _plural(n: int, singular: str, plural: str) -> str:
+    return f"{n} {singular if n == 1 else plural}"
+
+
+def _eta(r: IdentificarCargasResponse) -> str:
+    return "—" if r.umbral.separacion is None else numero(r.umbral.separacion, 2)
+
+
+def lineas_histograma(
+    barras: list[BarraHistogramaResponse],
+    umbral_kw: float | None,
+    unicode: bool | None = None,
+) -> list[str]:
+    """Histograma horizontal de |ΔP| en texto. La marca indica el corte que usó el entrenamiento."""
+    if not barras:
+        return ["No hay saltos para graficar."]
+    usar = usa_unicode() if unicode is None else unicode
+    bloque, marca = ("█", "←") if usar else ("#", "<")
+    ancho = max(10, min(40, ancho_terminal() - 36))
+    maximo = max(b.cantidad for b in barras) or 1
+    lineas = ["Distribución de saltos |ΔP| (cada fila es un tramo; los tramos no son iguales)"]
+    for b in barras:
+        etiqueta = f"{numero(b.desde_kw, 0)}–{numero(b.hasta_kw, 0)} kW".rjust(14)
+        largo = round(ancho * b.cantidad / maximo)
+        corte = ""
+        if umbral_kw is not None and b.desde_kw <= umbral_kw < b.hasta_kw:
+            corte = f"  {marca} corte {numero(umbral_kw)} kW"
+        lineas.append(f"{etiqueta} │{bloque * largo:<{ancho}} {numero(b.cantidad, 0)}{corte}")
+    if umbral_kw is not None:
+        bajo = sum(b.cantidad for b in barras if b.hasta_kw <= umbral_kw)
+        lineas.append(f"{numero(bajo, 0)} saltos quedan bajo el corte y no cuentan como eventos.")
+    return lineas
