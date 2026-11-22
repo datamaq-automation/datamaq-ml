@@ -13,6 +13,7 @@ from src.application.cargas.dtos.desagregar_cargas import (
     FirmaConfirmadaDTO,
     IntervaloMarchaDTO,
     ParametrosBancoDTO,
+    ParametrosMotorDTO,
 )
 from src.application.cargas.dtos.validar_desagregacion import (
     CargaValidacionDTO,
@@ -20,6 +21,7 @@ from src.application.cargas.dtos.validar_desagregacion import (
 )
 from src.application.cargas.use_cases.atribuir_cargas_batch import (
     AtribuirCargasBatchUseCase,
+    tolerancia_efectiva,
     umbral_minimo_kw,
 )
 from src.domain.cargas.banco_capacitores import (
@@ -49,10 +51,43 @@ def _ventana(mediciones: list[Medicion], desde: datetime, hasta: datetime) -> li
     return sorted((m for m in mediciones if desde <= m.instante < hasta), key=lambda m: m.instante)
 
 
-def _eventos(ventana: list[Medicion], firmas: list[FirmaConfirmadaDTO]) -> list[EventoCarga]:
+def _firmas_con_tolerancia_efectiva(
+    firmas: list[FirmaConfirmadaDTO], motor: ParametrosMotorDTO | None
+) -> list[FirmaConfirmadaDTO]:
+    """Las firmas con la tolerancia que usa el motor (la de dispersión, si está activa).
+
+    La clasificación de intervalos tiene que usar la misma tolerancia que el emparejamiento: si no,
+    un apagado que el motor cerró bien se cuenta como caída.
+    """
+    if motor is None or not motor.tolerancia_por_dispersion:
+        return firmas
+    return [f.model_copy(update={"tolerancia_kw": tolerancia_efectiva(f, motor)}) for f in firmas]
+
+
+def _clasificar_con_motor(
+    respuesta: AtribuirCargasBatchResponseDTO,
+    eventos: list[EventoCarga],
+    firmas: list[FirmaConfirmadaDTO],
+    motor: ParametrosMotorDTO | None,
+    ultimo: datetime | None,
+) -> list[Clasificado]:
+    """Clasifica con la misma tolerancia que usó el motor para emparejar."""
+    return _clasificar(respuesta, eventos, _firmas_con_tolerancia_efectiva(firmas, motor), ultimo)
+
+
+def _umbral_usado(firmas: list[FirmaConfirmadaDTO], umbral_kw: float | None) -> float:
+    """El umbral de detección: el compartido con el entrenamiento, o el mínimo del catálogo."""
+    if umbral_kw is not None:
+        return umbral_kw
+    return umbral_minimo_kw(firmas) if firmas else 0.1
+
+
+def _eventos(
+    ventana: list[Medicion], firmas: list[FirmaConfirmadaDTO], umbral_kw: float | None
+) -> list[EventoCarga]:
     if len(ventana) < 2:
         return []
-    return detectar_eventos(ventana, umbral_kw=umbral_minimo_kw(firmas) if firmas else 0.1)
+    return detectar_eventos(ventana, umbral_kw=_umbral_usado(firmas, umbral_kw))
 
 
 def _atribuir(
@@ -61,6 +96,8 @@ def _atribuir(
     desde: datetime,
     hasta: datetime,
     parametros: ParametrosBancoDTO | None = None,
+    umbral_kw: float | None = None,
+    motor: ParametrosMotorDTO | None = None,
 ) -> AtribuirCargasBatchResponseDTO:
     return AtribuirCargasBatchUseCase().ejecutar(
         AtribuirCargasBatchRequestDTO(
@@ -73,6 +110,8 @@ def _atribuir(
             mediciones=ventana,
             firmas=firmas,
             parametros_banco=parametros or ParametrosBancoDTO(),
+            parametros_motor=motor or ParametrosMotorDTO(),
+            umbral_deteccion_kw=umbral_kw,
         )
     )
 
@@ -131,6 +170,12 @@ def _resumen_cargas(
             )
         )
     return resumen
+
+
+def _contar_tipos(clasificados: list[Clasificado]) -> tuple[int, int, int]:
+    """(cerrados, abiertos, cortados) de los intervalos clasificados."""
+    tipos = [t for _, _, t in clasificados]
+    return tipos.count(CERRADO), tipos.count(ABIERTO), tipos.count(CORTADO)
 
 
 def _energia_medida(ventana: list[Medicion]) -> float:
@@ -248,26 +293,26 @@ class ValidarDesagregacionDiaUseCase:
         firmas: list[FirmaConfirmadaDTO],
         desde: datetime,
         hasta: datetime,
+        umbral_kw: float | None = None,
+        motor: ParametrosMotorDTO | None = None,
+        sin_modos: bool = False,
     ) -> MetricasDiaDTO:
         ventana = _ventana(mediciones, desde, hasta)
-        eventos = _eventos(ventana, firmas)
-        respuesta = _atribuir(ventana, firmas, desde, hasta)
-        respuesta_solo_p = _atribuir(ventana, firmas, desde, hasta, ParametrosBancoDTO(peso_q=0.0))
-        ultimo = ventana[-1].instante if ventana else None
-        clasificados = _clasificar(respuesta, eventos, firmas, ultimo)
-
-        tipos = [t for _, _, t in clasificados]
-        cerrados, abiertos, cortados = (
-            tipos.count(CERRADO),
-            tipos.count(ABIERTO),
-            tipos.count(CORTADO),
+        eventos = _eventos(ventana, firmas, umbral_kw)
+        respuesta = _atribuir(ventana, firmas, desde, hasta, umbral_kw=umbral_kw, motor=motor)
+        respuesta_solo_p = _atribuir(
+            ventana, firmas, desde, hasta, ParametrosBancoDTO(peso_q=0.0), umbral_kw, motor
         )
+        ultimo = ventana[-1].instante if ventana else None
+        clasificados = _clasificar_con_motor(respuesta, eventos, firmas, motor, ultimo)
+
+        cerrados, abiertos, cortados = _contar_tipos(clasificados)
         atribuidos = 2 * cerrados + abiertos + cortados
         energia_medida = _energia_medida(ventana)
         energia_atribuida = sum(it.energia_kwh_medida for _, it, _ in clasificados)
         solapamientos, horas_solapadas = _solapamientos(clasificados)
         pares_fusion, solapamientos_tras = _fusion(clasificados)
-        umbral = umbral_minimo_kw(firmas) if firmas else 0.1
+        umbral = _umbral_usado(firmas, umbral_kw)
         banco_conmutaciones, banco_contaminados, energia_solo_p, diferencia = _banco(
             ventana, eventos, respuesta_solo_p, energia_atribuida
         )
@@ -277,6 +322,7 @@ class ValidarDesagregacionDiaUseCase:
             huecos_mayores_a_5_min=_huecos(ventana),
             calidad_baja=_huecos(ventana) > self._umbral_huecos,
             umbral_kw=round(umbral, 3),
+            sin_modos_separables=sin_modos,
             energia_medida_kwh=round(energia_medida, 3),
             eventos=len(eventos),
             encendidos=sum(e.es_encendido for e in eventos),
