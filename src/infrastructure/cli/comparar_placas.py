@@ -18,6 +18,7 @@ import json
 from collections import Counter
 from pathlib import Path
 
+from src.application.cargas.use_cases.sembrar_firmas import sembrar_firmas
 from src.domain.cargas.catalogo_placa import (
     TOLERANCIA_POTENCIA_KW,
     ModoObservado,
@@ -39,6 +40,12 @@ def _construir_parser() -> argparse.ArgumentParser:
     parser.add_argument("--cargas", type=Path, required=True, help="cargas_<medidor>.csv de train")
     parser.add_argument("--tolerancia-kw", type=float, default=TOLERANCIA_POTENCIA_KW)
     parser.add_argument("--salida-json", type=Path, default=None)
+    parser.add_argument(
+        "--salida-firmas",
+        type=Path,
+        default=None,
+        help="siembra las firmas candidatas (catálogo para el batch, sin confirmar)",
+    )
     return parser
 
 
@@ -71,6 +78,14 @@ def main(args: list[str] | None = None) -> int:
         len(comparaciones), conteo["coincide"], conteo["coincide_forma_distinta"],
         conteo["sin_modo"], conteo["sin_escalon"],
     )  # fmt: skip
+    if parsed.salida_firmas is not None:
+        sembradas = sembrar_firmas(placas)
+        parsed.salida_firmas.parent.mkdir(parents=True, exist_ok=True)
+        datos = [f.model_dump(mode="json") for f in sembradas]
+        parsed.salida_firmas.write_text(
+            json.dumps(datos, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+        )
+        logger.info("Firmas sembradas: %d (las formas sin escalón no se siembran)", len(sembradas))
     if parsed.salida_json is not None:
         parsed.salida_json.parent.mkdir(parents=True, exist_ok=True)
         detalle = [
