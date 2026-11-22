@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import re
+
 import pytest
 
 from src.application.cargas.dtos.identificar_cargas import (
@@ -97,3 +99,73 @@ def test_siguiente_paso_apunta_al_grafico_cuando_hay_aviso() -> None:
     assert p.siguiente_paso_entrenamiento(_respuesta(), "sintetico") == (
         "./run.sh train sintetico --grafico   (ver dónde caen los saltos)"
     )
+
+
+def _numero_desde_texto(token: str) -> float:
+    """Convierte un número escrito en español (4.032 · 0,90 · 48,9) a float."""
+    if "," in token:
+        return float(token.replace(".", "").replace(",", "."))
+    grupos = token.split(".")
+    if len(grupos) > 1 and all(len(g) == 3 for g in grupos[1:]):
+        return float("".join(grupos))
+    return float(token)
+
+
+def _numeros_del_resultado(r: IdentificarCargasResponse) -> list[float]:
+    """Todos los valores numéricos del resultado, más la cantidad de cargas y los rótulos de paso."""
+
+    def hojas(valor: object) -> list[float]:
+        if isinstance(valor, bool):
+            return []
+        if isinstance(valor, (int, float)):
+            return [float(valor)]
+        if isinstance(valor, dict):
+            return [n for v in valor.values() for n in hojas(v)]
+        if isinstance(valor, list):
+            return [n for v in valor for n in hojas(v)]
+        return []
+
+    return [*hojas(r.model_dump()), float(len(r.cargas)), 1.0, 2.0, 3.0, 4.0]
+
+
+def _numeros_fuera_de_la_estructura(texto: str, r: IdentificarCargasResponse) -> list[float]:
+    permitidos = _numeros_del_resultado(r)
+    fuera = []
+    for token in re.findall(r"\d+(?:[.,]\d+)*", texto):
+        valor = _numero_desde_texto(token)
+        if not any(abs(valor - p) < 1e-9 for p in permitidos):
+            fuera.append(valor)
+    return fuera
+
+
+def _respuesta_distinta() -> IdentificarCargasResponse:
+    """Valores que no aparecen en ningún otro test: si la narración escribe uno a mano, falla."""
+    r = _respuesta(kw=37.3, sin_grupo=11)
+    return r.model_copy(
+        update={
+            "mediciones": 7777,
+            "eventos": 333,
+            "agrupamiento": r.agrupamiento.model_copy(update={"min_eventos": 9}),
+            "umbral": r.umbral.model_copy(update={"separacion": 0.77}),
+        }
+    )
+
+
+def test_narracion_solo_usa_numeros_que_salen_del_resultado() -> None:
+    r = _respuesta_distinta()
+    assert _numeros_fuera_de_la_estructura("\n".join(p.lineas_explicacion(r)), r) == []
+
+
+def test_narracion_con_un_numero_escrito_a_mano_falla_el_chequeo() -> None:
+    # Prueba del propio chequeo: un número literal que no viene del resultado tiene que aparecer.
+    r = _respuesta_distinta()
+    assert _numeros_fuera_de_la_estructura("Paso 1 · hay 99 mediciones", r) == [99.0]
+
+
+def test_narracion_muestra_los_valores_del_resultado_no_los_de_otro() -> None:
+    texto = "\n".join(p.lineas_explicacion(_respuesta_distinta()))
+    assert "hay 7.777 mediciones y 333 eventos" in texto
+    assert "η = 0,77, confiable" in texto
+    assert "Umbral: 37,3 kW" in texto
+    assert "al menos 9 eventos" in texto
+    assert "Quedan 11 eventos sin grupo" in texto
