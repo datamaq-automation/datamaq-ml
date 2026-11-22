@@ -271,6 +271,34 @@ carpeta fuera de git (el script se niega a escribir dentro de un repo) y se entr
 **No redistribuir.** Los datos reales anonimizados son del cliente. Quien los reciba no los copia, no los publica y no los
 sube a ningún servicio. Las guías con respuestas (`docs/guia-docente.md`) no se publican a estudiantes.
 
+## Verdad de terreno, evaluación y catálogo por placa
+
+Para medir qué tan bien encuentra el motor las máquinas, hace falta una verdad por intervalos
+(`nilm.verdad.v1`, ver `docs/verdad-de-terreno.md`). Hoy se obtiene del simulador; cuando esté el
+autómata con los contactos NA, se obtiene de los contactores.
+
+```bash
+# 1) Un día simulado con la verdad de contactores; --desfase-s corre el reloj del autómata
+./run.sh simulate --dias 1 --verdad-json output/verdad.json --desfase-s 3
+
+# 2) La salida del batch con las firmas de esas cargas (mismos nombres que la verdad)
+./run.sh disaggregate "Sintético" --device-id 00000000-0000-4000-8000-000000000001 \
+  --archivo data/input/sintetico.csv --firmas config/firmas.json --salida-json output/inferido.json
+
+# 3) Precisión y sensibilidad por máquina, por tiempo y por eventos (±300 s por defecto)
+./.venv/bin/python -m src.infrastructure.cli.evaluar_verdad \
+  --inferido output/inferido.json --verdad output/verdad.json --salida-json output/evaluacion.json
+
+# 4) Catálogo por placa: firma esperada según potencia, cos φ y forma de arranque
+./.venv/bin/python -m src.infrastructure.cli.comparar_placas \
+  --placas <catálogo local>.csv --cargas output/cargas_<medidor>.csv
+```
+
+- `--tolerancia-s` cambia la tolerancia de emparejamiento de arranques y paradas (300 s por defecto).
+- Con `--desfase-s` se mide cómo degrada el desfase de reloj: 0 a 10 s es el rango que hay que validar.
+- El formato del catálogo por placa y la tabla de formas de arranque están en `docs/catalogo-por-placa.md`.
+- El ejemplo de práctica con etiquetas verdaderas: `docs/material-ensenanza/practicas/practica_supervisado_arranques.py`.
+
 ## Configuración
 
 Las variables están centralizadas en `src/infrastructure/settings/config.py` con valores por defecto.
