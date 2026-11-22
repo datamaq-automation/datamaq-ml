@@ -238,6 +238,19 @@ Eso condiciona cómo se usa la reactiva:
 Con los sintéticos (`./run.sh simulate --banco fijo|automatico --ruido 0.1`) se prueba la lógica. Los datos reales con
 reactiva todavía no están disponibles para este análisis.
 
+## Exportar días desde el VPS (solo lectura)
+
+`scripts/exportar_dias_ssh.py` escribe, por medidor y día argentino, un CSV con `instante,potencia_kw,reactiva_kvar,energia_kwh`
+leído de la base de producción con una consulta SELECT. Lo ejecuta el dueño en su terminal; el repo no lo corre.
+
+```bash
+./.venv/bin/python scripts/exportar_dias_ssh.py --device-id <uuid-del-medidor> \
+    --desde AAAA-MM-DD --hasta AAAA-MM-DD --salida-dir <carpeta fuera de git> --tope-filas-dia 5000
+```
+
+El directorio debe estar fuera de todo repo git y tener permisos 700; los archivos se crean con 600. Solo se usan
+datos confiables (`es_dato_confiable = 1`). Un día que supera el tope no se escribe. El comando imprime conteos y no valores.
+
 ## Uso docente
 
 Material para el módulo «Procesamiento de Aprendizaje Automático»: `docs/material-ensenanza/` (índice en su

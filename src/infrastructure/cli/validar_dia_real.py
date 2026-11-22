@@ -88,3 +88,9 @@ def main(args: list[str] | None = None) -> int:
         metricas.pct_energia_atribuida,
     )
     return CODIGO_OK
+
+
+if __name__ == "__main__":
+    import sys
+
+    sys.exit(main())

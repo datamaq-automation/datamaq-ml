@@ -124,3 +124,33 @@ def test_la_salida_incluye_los_indicadores_de_banco(dia_sintetico, tmp_path: Pat
     assert "eventos_banco_dp_bajo_dq_alto" in datos
     assert "energia_atribuida_solo_p_kwh" in datos
     assert "diferencia_pct_p_vs_pq" in datos
+
+
+def test_el_modulo_se_puede_ejecutar_como_programa(dia_sintetico, tmp_path: Path) -> None:
+    """`python -m` ejecuta el bloque principal: la salida debe existir (antes salía 0 sin hacer nada)."""
+    import subprocess
+    import sys
+
+    csv, firmas = dia_sintetico
+    salida = tmp_path / "modulo.json"
+    proc = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "src.infrastructure.cli.validar_dia_real",
+            "--archivo",
+            str(csv),
+            "--firmas",
+            str(firmas),
+            "--fecha",
+            "2026-09-20",
+            "--salida-json",
+            str(salida),
+        ],
+        capture_output=True,
+        text=True,
+        cwd=Path(__file__).resolve().parents[2],
+        check=False,
+    )
+    assert proc.returncode == 0, proc.stderr
+    assert salida.exists()
