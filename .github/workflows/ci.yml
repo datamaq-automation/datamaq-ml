@@ -1,14 +1,15 @@
 # .github/workflows/ci.yml — Gauntlet local de datamaq-ml en un runner propio.
 #
 # Corre los mismos comandos que se usan en local (./run.sh), para que la validación
-# de un PR hacia main sea la misma que la del desarrollador. Se ejecuta solo en un
-# runner self-hosted con la etiqueta datamaq-ci; no usa runners hospedados por GitHub.
+# de un PR sea la misma que la del desarrollador. Se dispara en PR hacia develop y
+# main. Se ejecuta solo en un runner self-hosted con la etiqueta datamaq-ci; no usa
+# runners hospedados por GitHub.
 
 name: CI
 
 on:
   pull_request:
-    branches: [main]
+    branches: [develop, main]
 
 permissions:
   contents: read
@@ -21,6 +22,13 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      # Fija Python 3.12 para el venv de run.sh. El Python del sistema de la estación es
+      # 3.14; run.sh crea .venv con el python3 del PATH, así que el PATH lo tiene que dar esta acción.
+      - name: Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
 
       - name: Instalar dependencias de desarrollo
         run: ./run.sh install
