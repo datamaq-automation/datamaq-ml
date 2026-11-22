@@ -223,3 +223,9 @@ def _exportar_dia_medidor(
         return CODIGO_CONEXION
     logger.info("medidor %d, día %s: %d filas exportadas", indice, dia.isoformat(), filas)
     return CODIGO_OK
+
+
+if __name__ == "__main__":
+    import sys
+
+    sys.exit(main())
