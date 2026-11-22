@@ -70,6 +70,16 @@ documenta el formato: `--device-id <uuid-del-medidor>`.
 ./run.sh lint         # Estilo y formato con ruff
 ```
 
+### Códigos de salida de `train`
+
+| Código | Significado |
+|---|---|
+| `0` | Terminó. Puede haber advertencias (sin cargas, eventos sin grupo, sin escalones separables): aparecen en el resumen y no cambian el código. |
+| `2` | Argumentos inválidos: `--hasta` no es posterior a `--desde`, o el medidor pedido no existe en la carpeta. |
+| `3` | Datos faltantes: no hay CSV de mediciones en `MEDICIONES_CSV_DIR`. |
+
+Los scripts que corren `train` con `set -e` (como `scripts/validacion_privada.sh`) se detienen ante un `2` o un `3`.
+
 ## Desagregación batch diaria (`disaggregate`)
 
 ```bash
