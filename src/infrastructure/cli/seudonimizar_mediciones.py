@@ -164,3 +164,9 @@ def main(args: list[str] | None = None) -> int:
     except ErrorSeudonimizacion as error:
         logger.error("%s", error)
         return error.codigo
+
+
+if __name__ == "__main__":
+    import sys
+
+    sys.exit(main())
