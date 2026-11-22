@@ -35,6 +35,7 @@ class FirmaConfirmadaDTO(BaseModel):
     tolerancia_kw: float = 5.0
     umbral_marcha_kw: float = 1.0
     load_id: str | None = None
+    dispersion_kw: float | None = None  # dispersión medida del grupo (descubrimiento); opcional
 
 
 class ParametrosBancoDTO(BaseModel):
@@ -59,6 +60,10 @@ class ParametrosMotorDTO(BaseModel):
     """
 
     muestras_debounce: int = Field(default=1, ge=1)
+    tolerancia_por_dispersion: bool = False
+    factor_dispersion: float = Field(default=2.0, gt=0)
+    tolerancia_min_kw: float = Field(default=2.0, ge=0)
+    tolerancia_max_kw: float = Field(default=8.0, gt=0)
 
 
 class AtribuirCargasBatchRequestDTO(BaseModel):
