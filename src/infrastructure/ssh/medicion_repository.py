@@ -7,9 +7,67 @@ import time
 import unicodedata
 from datetime import datetime
 from pathlib import Path
+from typing import NamedTuple
 
 from src.domain.cargas.entities import Medicion
+from src.infrastructure.csv.medicion_repository import leer_reactiva_kvar
 from src.infrastructure.settings.logger import logger
+
+# MySQL guarda potencias en W (activa) y VAr (reactiva); el dominio trabaja en kW y kVAr.
+W_POR_KW = 1000.0
+
+# Una fila de la consulta ya convertida: (instante ISO, potencia kW, reactiva kVAr o None).
+FilaMedicion = tuple[str, float, float | None]
+
+
+class FilaDia(NamedTuple):
+    """Una medición de un día exportado: instante UTC sin zona, y valores ya en kW, kVAr y kWh."""
+
+    instante: str
+    potencia_kw: float | None
+    reactiva_kvar: float | None
+    energia_kwh: float | None
+
+
+def _a_numero(valor: str) -> float | None:
+    """Número de una celda de MySQL (energía en kWh, sin conversión). NULL o vacío devuelve None."""
+    if valor.strip() in ("", "NULL"):
+        return None
+    return float(valor)
+
+
+def parsear_filas_dia(salida: str, con_energia: bool) -> list[FilaDia]:
+    """Parsea la salida de la consulta de exportación diaria.
+
+    Columnas, en este orden: recorded_at, total_active_power (W), total_reactive_power (var) y,
+    si `con_energia`, net_active_energy_kwh (kWh). Una fila con menos columnas que las pedidas es un error:
+    no se exporta un día con datos rotos.
+    """
+    filas: list[FilaDia] = []
+    minimo = 4 if con_energia else 3
+    for linea in salida.splitlines():
+        if not linea.strip():
+            continue
+        partes = linea.split("\t")
+        if len(partes) < minimo:
+            raise ValueError(f"Fila con {len(partes)} columnas; se esperaban {minimo}")
+        energia = _a_numero(partes[3]) if con_energia else None
+        filas.append(
+            FilaDia(
+                instante=partes[0].replace(" ", "T"),
+                potencia_kw=_a_kilo(partes[1]),
+                reactiva_kvar=_a_kilo(partes[2]),
+                energia_kwh=energia,
+            )
+        )
+    return filas
+
+
+def _a_kilo(valor: str) -> float | None:
+    """Convierte un valor de MySQL (W o VAr) a kW o kVAr. NULL o vacío devuelve None."""
+    if valor.strip() in ("", "NULL"):
+        return None
+    return round(float(valor) / W_POR_KW, 4)
 
 
 class SshMedicionRepository:
@@ -28,7 +86,7 @@ class SshMedicionRepository:
     SSH_TIMEOUT = 30
 
     CONSULTA_SQL = """
-    SELECT d.name, t.recorded_at, t.total_active_power
+    SELECT d.name, t.recorded_at, t.total_active_power, t.total_reactive_power
     FROM datamaq_telemetry.telemetry_instantaneous t
     JOIN datamaq_telemetry.devices d ON d.id = t.device_id
     WHERE t.total_active_power IS NOT NULL AND t.es_dato_confiable = 1
@@ -53,7 +111,7 @@ class SshMedicionRepository:
         sin_tildes = unicodedata.normalize("NFKD", medidor).encode("ascii", "ignore").decode()
         return re.sub(r"[^a-z0-9]+", "_", sin_tildes.lower()).strip("_") + ".csv"
 
-    def _ejecutar_ssh(self) -> str:
+    def _ejecutar_ssh(self, consulta: str | None = None) -> str:
         """Ejecuta SSH + MySQL query en VPS. Retorna stdout.
 
         Raises:
@@ -73,7 +131,7 @@ class SshMedicionRepository:
                     self.SSH_HOST,
                     "mysql --batch --skip-column-names",
                 ],
-                input=self.CONSULTA_SQL,
+                input=consulta if consulta is not None else self.CONSULTA_SQL,
                 capture_output=True,
                 text=True,
                 timeout=self.SSH_TIMEOUT,
@@ -95,13 +153,14 @@ class SshMedicionRepository:
 
         return resultado.stdout
 
-    def _parsear_salida(self, salida_ssh: str) -> dict[str, list[tuple[str, float]]]:
+    def _parsear_salida(self, salida_ssh: str) -> dict[str, list[FilaMedicion]]:
         """Parsea stdout de MySQL. Retorna mediciones por medidor.
 
-        Convierte W → kW, formatea timestamps ISO.
+        Convierte W → kW y VAr → kVAr, formatea timestamps ISO. Si la fila trae solo tres
+        columnas (formato anterior sin reactiva), la reactiva queda en None.
         """
         logger.info("✅ Descarga desde VPS completada. Procesando datos...")
-        por_medidor: dict[str, list[tuple[str, float]]] = {}
+        por_medidor: dict[str, list[FilaMedicion]] = {}
 
         for linea in salida_ssh.splitlines():
             if not linea.strip():
@@ -112,19 +171,22 @@ class SshMedicionRepository:
                 continue
 
             medidor, instante, potencia_w = partes[0], partes[1], partes[2]
+            reactiva_var = partes[3] if len(partes) > 3 else "NULL"
 
             # Solo exportar medidores conocidos (anonimización)
             if medidor not in self.ALIASES_CONOCIDOS:
                 logger.debug("Medidor no mapeado (ignorado): %s", medidor)
                 continue
 
-            W_POR_KW = 1000.0
             instante_iso = instante.replace(" ", "T")
-            potencia_kw = round(float(potencia_w) / W_POR_KW, 4)
+            potencia_kw = _a_kilo(potencia_w)
+            if potencia_kw is None:
+                logger.warning("Potencia activa nula (fila ignorada): %s", linea)
+                continue
 
             if medidor not in por_medidor:
                 por_medidor[medidor] = []
-            por_medidor[medidor].append((instante_iso, potencia_kw))
+            por_medidor[medidor].append((instante_iso, potencia_kw, _a_kilo(reactiva_var)))
 
         logger.info("📊 Datos recuperados: %d medidores", len(por_medidor))
         for med, filas in por_medidor.items():
@@ -133,8 +195,11 @@ class SshMedicionRepository:
 
         return por_medidor
 
-    def _cachear_en_csv(self, por_medidor: dict[str, list[tuple[str, float]]]) -> None:
-        """Escribe datos descargados en CSV locales (cache)."""
+    def _cachear_en_csv(self, por_medidor: dict[str, list[FilaMedicion]]) -> None:
+        """Escribe datos descargados en CSV locales (cache): instante, potencia_kw, reactiva_kvar.
+
+        La reactiva vacía (None) se escribe como celda vacía.
+        """
         self._cache_dir.mkdir(parents=True, exist_ok=True)
 
         for medidor, filas in por_medidor.items():
@@ -143,7 +208,7 @@ class SshMedicionRepository:
 
             with ruta.open("w", newline="", encoding="utf-8") as f:
                 escritor = csv.writer(f)
-                escritor.writerow(["instante", "potencia_kw"])
+                escritor.writerow(["instante", "potencia_kw", "reactiva_kvar"])
                 escritor.writerows(filas)
 
             logger.info("💾 Cacheado: %s → %s (%d registros)", medidor, ruta, len(filas))
@@ -239,6 +304,7 @@ class SshMedicionRepository:
                 Medicion(
                     instante=datetime.fromisoformat(f["instante"]),
                     potencia_kw=float(f["potencia_kw"]),
+                    reactiva_kvar=leer_reactiva_kvar(f),
                 )
                 for f in csv.DictReader(archivo)
             )
@@ -254,3 +320,15 @@ class SshMedicionRepository:
             "duracion_segundos": self._duracion_descarga,
             "filas_por_medidor": self._filas_por_medidor,
         }
+
+
+def ejecutar_consulta_de_lectura(repo: SshMedicionRepository, consulta: str) -> str:
+    """Ejecuta en el VPS una consulta de solo lectura y devuelve la salida de MySQL.
+
+    Solo acepta una sentencia SELECT. Cualquier otra cosa (escritura, DDL, varias sentencias) se rechaza
+    antes de tocar la red.
+    """
+    limpia = consulta.strip().rstrip(";")
+    if not limpia.upper().startswith("SELECT ") or ";" in limpia:
+        raise ValueError("Solo se permite una sentencia SELECT de lectura.")
+    return repo._ejecutar_ssh(consulta)

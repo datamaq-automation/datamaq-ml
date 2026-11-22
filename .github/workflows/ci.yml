@@ -1,0 +1,52 @@
+# .github/workflows/ci.yml — Gauntlet local de datamaq-ml en un runner propio.
+#
+# Corre los mismos comandos que se usan en local (./run.sh), para que la validación
+# de un PR sea la misma que la del desarrollador. Se dispara en PR hacia develop y
+# main. Se ejecuta solo en un runner self-hosted con la etiqueta datamaq-ci; no usa
+# runners hospedados por GitHub.
+
+name: CI
+
+on:
+  pull_request:
+    branches: [develop, main]
+
+permissions:
+  contents: read
+
+jobs:
+  gauntlet:
+    name: Gauntlet (test, gauntlet, audit, lint)
+    runs-on: [self-hosted, linux, datamaq-ci]
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Fija Python 3.12 para el venv de run.sh. El Python del sistema de la estación es
+      # 3.14; run.sh crea .venv con el python3 del PATH, así que el PATH lo tiene que dar esta acción.
+      - name: Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      # El runner reutiliza el workspace entre runs, así que un .venv de un run anterior puede
+      # quedar en otra versión de Python. run.sh (ensure_venv) solo crea el venv si no existe,
+      # así que sin este paso los tests podrían correr con un intérprete distinto de 3.12.
+      - name: Descartar .venv previo
+        run: rm -rf .venv
+
+      - name: Instalar dependencias de desarrollo
+        run: ./run.sh install
+
+      - name: Tests (pytest)
+        run: ./run.sh test
+
+      - name: Restricciones arquitectónicas (gauntlet)
+        run: ./run.sh gauntlet
+
+      - name: Auditoría de código muerto y componentes Dios
+        run: ./run.sh audit
+
+      - name: Lint y formato (ruff)
+        run: ./run.sh lint

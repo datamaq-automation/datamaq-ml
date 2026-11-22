@@ -7,11 +7,16 @@ from datetime import datetime
 
 @dataclass(frozen=True)
 class Medicion:
-    """Potencia activa total de un medidor en un instante, siempre en kW."""
+    """Potencia activa total de un medidor en un instante, siempre en kW.
+
+    `energia_acumulada_kwh` es el contador de energía activa del medidor en ese instante, si la
+    fuente lo trae. Con él, la energía de un intervalo es la diferencia entre dos contadores.
+    """
 
     instante: datetime
     potencia_kw: float
     reactiva_kvar: float | None = None
+    energia_acumulada_kwh: float | None = None
 
 
 @dataclass(frozen=True)

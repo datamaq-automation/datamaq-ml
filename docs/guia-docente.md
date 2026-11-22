@@ -1,5 +1,8 @@
 # Guía docente — energy-ml
 
+> **NO PUBLICABLE A ESTUDIANTES.** Esta guía contiene respuestas del docente y hallazgos sobre datos reales de una planta (sección 8). El material para estudiantes está en `docs/material-ensenanza/` y usa solo el tablero sintético.
+
+
 > **Material para docentes, con respuestas.** No se publica en la app: los alumnos trabajan con el [cuaderno del alumno](cuaderno-alumno.md), que se sirve en `/guia` y no tiene respuestas. Las respuestas de cada actividad del cuaderno están en la [sección 17](#17-respuestas-del-cuaderno-del-alumno). Como el repositorio es público, un alumno que lo clone puede leer este archivo: si eso importa, conviene guardar una copia fuera del repo.
 
 **Referencia pedagógica:** este proyecto es un caso de estudio del curso **"Procesamiento de Aprendizaje Automático"** (https://isftn199.com.ar/cursos/procesamiento-aprendizaje-automatico). Implementa conceptos de **Unidad 2 (Clasificación y evaluación)** y **Unidad 3 (Árboles de decisión, algoritmos de inducción)**.
