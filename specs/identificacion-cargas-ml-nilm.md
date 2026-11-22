@@ -78,6 +78,14 @@ Cuatro capas, un commit por capa (ver `git log` de la rama):
 
 ## 5. Pendientes, riesgos y decisiones abiertas
 
+**Reactiva neta y banco de capacitores (adenda del 2026-11-22).** El medidor ve Q_medida = Q_cargas − Q_banco.
+Un banco automático produce conmutaciones con ΔP ≈ 0 y ΔQ grande, que contaminan la ΔQ de los escalones de carga
+en la misma ventana de muestreo. Medidas en esta rama: las conmutaciones se detectan y se excluyen de la atribución;
+los escalones contaminados se emparejan con ΔP solamente; los pesos de P y Q son configurables con default igual.
+Pendiente: confirmar con datos reales si el banco es fijo (hoy es una impresión del dueño) y decidir el peso de ΔQ.
+Riesgo: con muestreo de 5 minutos, eventos simultáneos no se ordenan dentro de la muestra.
+
+
 **Fuera de este bloque (no se resuelve acá):**
 
 - **Persistencia en telemetry.** La importación idempotente de `nilm.intervalos.v1` la hace datamaq-telemetry (tabla `load_activity_intervals`, clave `(device_id, inicio_utc, fin_utc)`).
