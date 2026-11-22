@@ -85,7 +85,95 @@ validar_ssh_prod() {
     fi
 }
 
-COMMAND="${1:-help}"
+mostrar_menu() {
+    cat <<'TXT'
+Uso: ./run.sh [COMANDO] [OPCIONES]
+Detalle de un comando: ./run.sh ayuda <comando>
+
+DATOS
+  simulate       genera un tablero sintético con cargas conocidas
+  disaggregate   desagrega un día con firmas confirmadas (batch diario)
+
+APRENDIZAJE
+  train          encuentra las cargas sin etiquetas (no supervisado)
+  supervise      entrena un clasificador con la verdad de un medidor simulado
+
+EVALUACIÓN
+  evaluate       compara lo encontrado con la verdad conocida
+
+SERVIDOR Y DESARROLLO
+  dev, start     levantan el servidor FastAPI (start dev | start prod)
+  test, gauntlet, audit, lint, format, install
+
+Para empezar: ./run.sh simulate --dias 14
+              y después: ./run.sh train sintetico
+TXT
+}
+
+mostrar_ayuda_comando() {
+    case "$1" in
+        simulate)
+            cat <<'TXT'
+simulate · genera un tablero sintético con cargas conocidas
+  Parte de:  nada (crea datos de prueba)
+  Escribe:   data/input/sintetico.csv y su verdad en data/verdad/
+  Ejemplo:   ./run.sh simulate --dias 14
+TXT
+            ;;
+        train)
+            cat <<'TXT'
+train · identifica las cargas sin etiquetas (aprendizaje no supervisado)
+  Parte de:  un CSV de mediciones por medidor en data/input/
+  Hace:      detecta saltos de potencia → elige el umbral → agrupa por tamaño → resume
+  Ejercicio: E6 (agrupamiento por densidad)
+  Ejemplos:  ./run.sh train sintetico
+             ./run.sh train sintetico --desde AAAA-MM-DD --hasta AAAA-MM-DD
+TXT
+            ;;
+        supervise)
+            cat <<'TXT'
+supervise · entrena un clasificador con la verdad de un medidor simulado (supervisado)
+  Parte de:  un medidor simulado con su verdad (./run.sh simulate)
+  Hace:      aprende con un árbol de decisión y muestra las reglas
+  Ejercicio: E3 (árboles de decisión)
+  Ejemplo:   ./run.sh supervise
+TXT
+            ;;
+        evaluate)
+            cat <<'TXT'
+evaluate · compara lo identificado con la verdad conocida
+  Parte de:  el resultado de train y la verdad de un medidor simulado
+  Hace:      calcula sensibilidad y precisión por carga
+  Ejercicio: E5 (separación entre entrenamiento y verdad)
+  Ejemplo:   ./run.sh evaluate
+TXT
+            ;;
+        disaggregate)
+            cat <<'TXT'
+disaggregate · desagrega un día y calcula horas de marcha por máquina (batch diario)
+  Parte de:  un CSV del día y un catálogo de firmas confirmadas
+  Ejemplo:   ./run.sh disaggregate --help
+TXT
+            ;;
+        "")
+            mostrar_menu
+            ;;
+        *)
+            imprimir_error_comando "No conozco el comando «$1»." \
+                "ayuda pide el nombre exacto de un comando del menú." \
+                "corré ./run.sh para ver la lista y después ./run.sh ayuda <comando>."
+            return 1
+            ;;
+    esac
+}
+
+imprimir_error_comando() {
+    echo "✘ ERROR  $1" >&2
+    echo "  Por qué:  $2" >&2
+    echo "  Cómo:     $3" >&2
+}
+
+COMMAND="${1:-menu}"
 
 case "$COMMAND" in
     dev)
@@ -186,30 +274,11 @@ case "$COMMAND" in
             "$PIP_BIN" install -r requirements.txt
         fi
         ;;
-    help|--help|-h)
-        echo ""
-        echo "Uso: ./run.sh [COMANDO] [OPCIONES]"
-        echo ""
-        echo "Comandos disponibles:"
-        echo "  dev       : Levanta el servidor FastAPI con reload automático en puerto 8000"
-        echo "  start     : Levanta el servidor FastAPI (por defecto dev)"
-        echo "              Opcional: dev (datos locales) o prod (datos desde VPS via SSH)"
-        echo "              Uso: ./run.sh start dev    # datos en data/input/"
-        echo "                   ./run.sh start prod   # datos descargados del VPS"
-        echo "  train     : Identifica las cargas de data/input/ y guarda resultados en data/output/"
-        echo "              Opcional: medidores y --desde/--hasta (ej. ./run.sh train planta_2_a --desde 2026-09-15)"
-        echo "  simulate  : Genera data/input/sintetico.csv y su verdad en data/verdad/ (cargas conocidas)"
-        echo "  evaluate  : Compara lo identificado con la verdad de un medidor simulado (sensibilidad, precisión)"
-        echo "  supervise : Aprende las cargas de un medidor simulado con un árbol de decisión (supervisado)"
-        echo "  disaggregate : Desagrega eventos y calcula horas de marcha efectivas por máquina (batch diario)"
-        echo "  test      : Ejecuta la suite de pruebas unitarias y de arquitectura con pytest"
-        echo "  gauntlet  : Ejecuta las 11 reglas del Guantelete de Restricciones (test_architecture.py)"
-        echo "  audit     : Ejecuta auditorías de código muerto y componentes Dios"
-        echo "  lint      : Comprueba errores de estilo y formato con ruff"
-        echo "  format    : Formatea y corrige automáticamente el código con ruff"
-        echo "  install   : Sincroniza las dependencias en el entorno virtual .venv"
-        echo "  help      : Muestra esta ayuda"
-        echo ""
+    menu|help|--help|-h)
+        mostrar_menu
+        ;;
+    ayuda)
+        mostrar_ayuda_comando "${2:-}" || exit 1
         ;;
     *)
         echo "❌ Comando desconocido: $COMMAND"
