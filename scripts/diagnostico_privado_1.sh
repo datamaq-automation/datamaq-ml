@@ -23,6 +23,7 @@ done
 cd "$REPO"
 "$PY" - "$REPO" "$DATOS" "$TRABAJO" <<'PY'
 import json
+import os
 import sys
 from collections import Counter
 from datetime import date, datetime, timedelta, timezone
@@ -35,13 +36,16 @@ sys.path.insert(0, str(REPO))
 
 from sklearn.cluster import DBSCAN  # noqa: E402
 
-from src.application.cargas.dtos.desagregar_cargas import FirmaConfirmadaDTO  # noqa: E402
-from src.application.cargas.use_cases.atribuir_cargas_batch import umbral_minimo_kw  # noqa: E402
+from src.application.cargas.dtos.desagregar_cargas import (  # noqa: E402
+    FirmaConfirmadaDTO,
+    ParametrosMotorDTO,
+)
 from src.application.cargas.use_cases.validar_desagregacion import (  # noqa: E402
     CORTADO,
     _atribuir,
-    _clasificar,
+    _clasificar_con_motor,
     _eventos,
+    _umbral_usado,
     _ventana,
 )
 from src.domain.cargas.banco_capacitores import (  # noqa: E402
@@ -111,7 +115,18 @@ for etq in sorted(por_etiqueta):
         FirmaConfirmadaDTO(**x)
         for x in json.loads((TRABAJO / "catalogos" / f"catalogo_{etq}.json").read_text(encoding="utf-8"))
     ]
-    umbral = umbral_minimo_kw(firmas)
+    # Mismo umbral y mismo régimen que la validación: lo fija el entrenamiento (sidecar de train).
+    sidecar = TRABAJO / "clusters" / f"entrenamiento_{etq}.json"
+    entrenamiento = json.loads(sidecar.read_text(encoding="utf-8")) if sidecar.exists() else {}
+    umbral = _umbral_usado(firmas, entrenamiento.get("umbral_kw"))  # sin firmas no hay min(): usa el entrenamiento
+    # Mismos parámetros de tolerancia que validacion_privada.sh (--tolerancia-por-dispersion --tolerancia-max-kw).
+    motor = ParametrosMotorDTO(
+        tolerancia_por_dispersion=True, tolerancia_max_kw=float(os.environ.get("TOL_MAX", "25"))
+    )
+    print(
+        f"Régimen {entrenamiento.get('regimen')}: umbral compartido {umbral:.1f} kW; "
+        f"firmas en el catálogo {len(firmas)}"
+    )
 
     hist_p = {"subidas": [0] * (NBINS + 1), "bajadas": [0] * (NBINS + 1)}
     hist_q = {"subidas": [0] * (NBINS + 1), "bajadas": [0] * (NBINS + 1)}
@@ -149,7 +164,7 @@ for etq in sorted(por_etiqueta):
     print(f"Pares de muestras consecutivas: {pares} sin hueco; {pares_hueco} con hueco (> 5 min, excluidos de [1] y [2])")
     imprimir_histograma("[1] |ΔP| entre muestras consecutivas, por tramo de 5 kW:", hist_p["subidas"], hist_p["bajadas"])
     imprimir_histograma("[2] |ΔQ| entre muestras consecutivas, por tramo de 5 kVAr (cambio de ΔQ en kVAr):", hist_q["subidas"], hist_q["bajadas"])
-    print(f"[3] Saltos |ΔP| ≥ {umbral:.1f} kW (umbral de eventos del repo, umbral_minimo_kw del catálogo), por hora local:")
+    print(f"[3] Saltos |ΔP| ≥ {umbral:.1f} kW (umbral compartido con el entrenamiento), por hora local:")
     print("   " + " ".join(f"{h:02d}:{hora_ev[h]}" for h in range(24)))
     print("    Eventos de banco (|ΔP| < 1,5 kW y |ΔQ| ≥ 10 kVAr; definición en src/domain/cargas/banco_capacitores.py, líneas 14-15 y 31), por hora local:")
     print("   " + " ".join(f"{h:02d}:{hora_banco[h]}" for h in range(24)))
@@ -188,16 +203,16 @@ for etq in sorted(por_etiqueta):
         desde, hasta = ventana_utc_del_dia(date.fromisoformat(fecha))
         meds = leer(DATOS / f"{id_}_{fecha}.csv")
         ventana = _ventana(meds, desde, hasta)
-        eventos = _eventos(ventana, firmas)
+        eventos = _eventos(ventana, firmas, umbral)
         n_ev += len(eventos)
         for e in eventos:
             hist_ev["subidas" if e.delta_kw > 0 else "bajadas"][tramo(e.delta_kw)] += 1
             if any(abs(abs(e.delta_kw) - f.potencia_nominal_kw) <= (eps or 0.0) for f in firmas):
                 dentro += 1
-        respuesta = _atribuir(ventana, firmas, desde, hasta)
+        respuesta = _atribuir(ventana, firmas, desde, hasta, umbral_kw=umbral, motor=motor)
         ultimo = ventana[-1].instante if ventana else None
         indice = {m.instante: k for k, m in enumerate(ventana)}
-        for _, it, tipo in _clasificar(respuesta, eventos, firmas, ultimo):
+        for _, it, tipo in _clasificar_con_motor(respuesta, eventos, firmas, motor, ultimo):
             if tipo != CORTADO:
                 continue
             cortados_total += 1
