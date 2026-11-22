@@ -92,7 +92,7 @@ def test_ancho_de_terminal_respeta_columns_y_tiene_minimo(monkeypatch: pytest.Mo
 def test_entrenamiento_sin_ruido_da_ok_y_siguiente_paso_supervise() -> None:
     r = _respuesta([_carga()], sin_grupo=0)
     assert p.veredicto_entrenamiento(r)[0] == "ok"
-    assert p.siguiente_paso_entrenamiento(r).startswith("./run.sh supervise")
+    assert p.siguiente_paso_entrenamiento(r, "sintetico").startswith("./run.sh supervise")
 
 
 def test_eventos_sin_grupo_dan_aviso_con_la_cifra_y_ayuda_que_existe() -> None:
@@ -100,7 +100,9 @@ def test_eventos_sin_grupo_dan_aviso_con_la_cifra_y_ayuda_que_existe() -> None:
     nivel, texto = p.veredicto_entrenamiento(r)
     assert nivel == "aviso"
     assert "8 de 496 eventos" in texto
-    assert p.siguiente_paso_entrenamiento(r) == "./run.sh ayuda train   (cómo cambiar el umbral)"
+    assert p.siguiente_paso_entrenamiento(r, "sintetico") == (
+        "./run.sh train sintetico --grafico   (ver dónde caen los saltos)"
+    )
 
 
 def test_sin_modos_separables_no_inventa_cargas() -> None:
