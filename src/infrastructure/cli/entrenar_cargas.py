@@ -11,11 +11,15 @@ Uso:
 import argparse
 from datetime import datetime
 from pathlib import Path
+from typing import Any
 
-from src.application.cargas.dtos.identificar_cargas import IdentificarCargasRequest
+from src.application.cargas.dtos.identificar_cargas import (
+    CargaResponse,
+    IdentificarCargasRequest,
+    IdentificarCargasResponse,
+)
 from src.application.cargas.use_cases.identificar_cargas import IdentificarCargasUseCase
 from src.domain.cargas.entities import Carga
-from src.domain.cargas.repositories import CargaRepository
 from src.infrastructure.csv.carga_repository import CsvCargaRepository
 from src.infrastructure.mediciones_factory import get_mediciones
 from src.infrastructure.settings.config import describir_nilm, get_settings
@@ -107,6 +111,30 @@ def leer_argumentos() -> argparse.Namespace:
     return parser.parse_args()
 
 
+def _carga(c: CargaResponse) -> Carga:
+    return Carga(
+        potencia_tipica_kw=c.potencia_tipica_kw,
+        encendidos=c.encendidos,
+        apagados=c.apagados,
+        dispersion_kw=c.dispersion_kw,
+        reactiva_tipica_kvar=c.reactiva_tipica_kvar,
+        ratio_qp_mediana=c.ratio_qp_mediana,
+    )
+
+
+def _resumen_entrenamiento(r: IdentificarCargasResponse) -> dict[str, Any]:
+    """Lo que la validación necesita para usar el mismo umbral y el mismo régimen."""
+    return {
+        "umbral_kw": r.umbral.kw,
+        "separacion": r.umbral.separacion,
+        "regimen": r.umbral.regimen,
+        "sin_modos_separables": r.sin_modos_separables,
+        "eventos": r.eventos,
+        "radio_kw": r.agrupamiento.radio_kw,
+        "modos": [m.model_dump() for m in r.modos],
+    }
+
+
 def main() -> None:
     args = leer_argumentos()
     cambios = {
@@ -117,7 +145,7 @@ def main() -> None:
     settings = get_settings().model_copy(update=cambios)
     entrada, salida = Path(settings.MEDICIONES_CSV_DIR), Path(settings.RESULTADOS_DIR)
     repositorio = get_mediciones(settings)
-    resultados: CargaRepository = CsvCargaRepository(salida)
+    resultados = CsvCargaRepository(salida)
     caso_de_uso = IdentificarCargasUseCase(
         mediciones=repositorio,
         agrupador=DbscanAgrupador(),
@@ -153,9 +181,8 @@ def main() -> None:
         r = caso_de_uso.execute(
             IdentificarCargasRequest(medidor=medidor, desde=args.desde, hasta=args.hasta)
         )
-        resultados.guardar(
-            medidor, [Carga(c.potencia_tipica_kw, c.encendidos, c.apagados) for c in r.cargas]
-        )
+        resultados.guardar(medidor, [_carga(c) for c in r.cargas])
+        resultados.guardar_entrenamiento(medidor, _resumen_entrenamiento(r))
 
 
 if __name__ == "__main__":
