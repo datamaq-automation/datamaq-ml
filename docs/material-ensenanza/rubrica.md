@@ -7,6 +7,11 @@ referencial; el promedio no reemplaza la lectura del trabajo.
 Niveles: **Inicial** (no cumple lo mínimo), **En desarrollo**, **Logrado**, **Avanzado** (va más allá: propone una
 mejora fundamentada).
 
+> **Referencia externa pendiente (issue #22).** Los referenciales oficiales de evaluación del módulo (ISFT 199) no
+> están en este repo y no están verificados. Hay que pedirlos al docente y citarlos aquí con su fuente antes de usar
+> esta rúbrica como referencia. Hasta entonces, los cuatro niveles de cada referencial son una propuesta interna del
+> proyecto, no el texto oficial.
+
 ---
 
 ## 1. Validación y verificación de modelos
