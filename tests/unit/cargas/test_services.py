@@ -134,3 +134,38 @@ def test_dispersion_de_un_solo_evento_es_cero() -> None:
 
 def test_carga_sin_dispersion_explicita_vale_cero() -> None:
     assert Carga(potencia_tipica_kw=90, encendidos=1, apagados=1).dispersion_kw == 0.0
+
+
+def test_saltos_bajo_umbral_cuenta_y_calcula_energia_estimada() -> None:
+    from src.domain.cargas.services import saltos_bajo_umbral
+
+    # Mediciones cada 1 hora (horas = 1.0)
+    # 0h: 10 kW
+    # 1h: 12 kW (salto = 2 kW < 50 kW) -> potencia media = 11 kW, energía = 11 kWh
+    # 2h: 15 kW (salto = 3 kW < 50 kW) -> potencia media = 13.5 kW, energía = 13.5 kWh
+    # 3h: 100 kW (salto = 85 kW >= 50 kW) -> no cuenta
+    # 4h: 102 kW (salto = 2 kW < 50 kW) -> potencia media = 101 kW, energía = 101 kWh
+    mediciones = [
+        Medicion(instante=T0, potencia_kw=10.0),
+        Medicion(instante=T0 + timedelta(hours=1), potencia_kw=12.0),
+        Medicion(instante=T0 + timedelta(hours=2), potencia_kw=15.0),
+        Medicion(instante=T0 + timedelta(hours=3), potencia_kw=100.0),
+        Medicion(instante=T0 + timedelta(hours=4), potencia_kw=102.0),
+    ]
+    cantidad, energia = saltos_bajo_umbral(mediciones, umbral_kw=50.0)
+    assert cantidad == 3
+    assert energia == 11.0 + 13.5 + 101.0
+
+
+def test_saltos_bajo_umbral_vacio_o_sin_saltos_menores_devuelve_cero() -> None:
+    from src.domain.cargas.services import saltos_bajo_umbral
+
+    assert saltos_bajo_umbral([], umbral_kw=50.0) == (0, 0.0)
+    assert saltos_bajo_umbral([Medicion(instante=T0, potencia_kw=10.0)], umbral_kw=50.0) == (0, 0.0)
+
+    # Todos los saltos superan el umbral
+    mediciones = [
+        Medicion(instante=T0, potencia_kw=10.0),
+        Medicion(instante=T0 + timedelta(hours=1), potencia_kw=100.0),
+    ]
+    assert saltos_bajo_umbral(mediciones, umbral_kw=50.0) == (0, 0.0)

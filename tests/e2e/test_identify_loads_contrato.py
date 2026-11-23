@@ -33,6 +33,8 @@ def test_contrato_de_la_respuesta() -> None:
         # Aditivos del issue #24: régimen de los saltos y modos separables (no rompen a quien ya consume).
         "sin_modos_separables",
         "modos",
+        # Aditivo del issue #31: aviso de saltos bajo el umbral y energía desestimada.
+        "saltos_bajo_umbral",
     }
 
 

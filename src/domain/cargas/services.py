@@ -88,6 +88,24 @@ def saltos_kw(mediciones: list[Medicion]) -> list[float]:
     return [abs(b.potencia_kw - a.potencia_kw) for a, b in pairwise(ordenadas)]
 
 
+def saltos_bajo_umbral(mediciones: list[Medicion], umbral_kw: float) -> tuple[int, float]:
+    """Cuenta cuántos saltos quedaron por debajo del umbral y cuánta energía representan (kWh).
+
+    Entre mediciones consecutivas ordenadas por instante, si |ΔP| < umbral_kw:
+    - cuenta el salto como no analizado;
+    - integra la energía de ese intervalo por regla de los trapecios (potencia media * horas).
+    """
+    ordenadas = sorted(mediciones, key=lambda m: m.instante)
+    cantidad = 0
+    energia_kwh = 0.0
+    for a, b in pairwise(ordenadas):
+        if abs(b.potencia_kw - a.potencia_kw) < umbral_kw:
+            cantidad += 1
+            horas = (b.instante - a.instante).total_seconds() / 3600.0
+            energia_kwh += (a.potencia_kw + b.potencia_kw) / 2.0 * horas
+    return cantidad, energia_kwh
+
+
 def histograma(valores: list[float], barras: int = 30) -> list[BarraHistograma]:
     """Histograma de 0 al percentil 99; la última barra junta también los valores más grandes."""
     if not valores or barras < 1:

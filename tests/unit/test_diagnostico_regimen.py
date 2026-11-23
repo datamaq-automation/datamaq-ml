@@ -15,16 +15,18 @@ import sys
 from datetime import date, datetime, timedelta
 from pathlib import Path
 
-from src.infrastructure.cli.desagregar_cargas import ventana_utc_del_dia
-
 import pytest
+
+from src.infrastructure.cli.desagregar_cargas import ventana_utc_del_dia
 
 RAIZ = Path(__file__).resolve().parents[2]
 DIAG_1 = RAIZ / "scripts" / "diagnostico_privado_1.sh"
 DIAG_2 = RAIZ / "scripts" / "diagnostico_privado_2.sh"
 
 if not DIAG_1.exists():
-    pytest.skip("diagnostico_privado_1.sh no está presente en este entorno", allow_module_level=True)
+    pytest.skip(
+        "diagnostico_privado_1.sh no está presente en este entorno", allow_module_level=True
+    )
 ID = "11111111-1111-4111-8111-111111111111"
 FECHAS = ["2026-09-20", "2026-09-21"]
 
