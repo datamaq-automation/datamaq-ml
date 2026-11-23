@@ -16,6 +16,16 @@ Para mirar la verdad solo después de responder: `data/verdad/sintetico.csv`.
 
 ## Bloque 1 — Aprendizaje supervisado: árboles de decisión
 
+**E0. Regla del experto frente a regla inducida.** Comparar una regla deductiva manual con una regla inducida de datos (ver ↗ [reglas_deductivas_ejemplo.md](file:///home/agustin/proyectos_software/datamaq/datamaq-ml/docs/material-ensenanza/reglas_deductivas_ejemplo.md) y script ↗ [ejemplo_issue_12.py](file:///home/agustin/proyectos_software/datamaq/datamaq-ml/docs/ejemplos/ejemplo_issue_12.py)):
+
+```bash
+python docs/ejemplos/ejemplo_issue_12.py
+```
+
+1. Calculá a mano los cortes inductivos entre los ejemplos de entrenamiento 15, 40 y 90 kW y confirmá que den 27,5 y 65,0 kW.
+2. Armá la matriz de confusión 3x3 para la regla del experto y para la regla inducida sobre los seis casos de prueba. ¿Qué exactitud global tiene cada una?
+3. Si ambas tienen 5/6 (83,3 %) de exactitud, ¿por qué no son equivalentes? Explicá qué error comete cada una y cuál es más peligroso para el mantenimiento de la planta.
+
 **E1. Un árbol que explica.** Entrená un árbol con la verdad del tablero sintético:
 
 ```bash
