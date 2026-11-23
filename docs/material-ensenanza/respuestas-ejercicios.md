@@ -167,17 +167,29 @@ Dados los ejemplos:
   - Cobertura: 95.0 %.
   - Rechazado por: Energía inventada en el intervalo 6 (`atribuido=15.0 > medido=10.0`), violando la invarianza física.
 
-
 ### E8c. Despacho horario de cargas con Q-Learning tabular
 - **1. Deducción analítica de Bellman en estado valle:**
-  - El sistema es un ciclo de período 2 ( = \text{valle} \rightarrow s_1 = \text{pico} \rightarrow s_2 = \text{valle}$).
-  - La ecuación de valor recursiva es: (\text{valle}) = r_{\text{valle}} + \gamma \cdot r_{\text{pico}} + \gamma^2 \cdot V(\text{valle})$.
-  - Despejando: (\text{valle}) = \frac{r_{\text{valle}} + \gamma \cdot r_{\text{pico}}}{1 - \gamma^2}$.
-  - Con {\text{pico}} = -5$ (política óptima: arrancar en valle, esperar en pico con recompensa 0):
-    (\text{valle}) = \frac{2 + 0.9 \cdot 0}{1 - 0.81} = \frac{2}{0.19} \approx \mathbf{10.5263}$.
-  - Con {\text{pico}} = +1$ (política óptima: arrancar en ambos estados):
-    (\text{valle}) = \frac{2 + 0.9 \cdot 1}{1 - 0.81} = \frac{2.9}{0.19} \approx \mathbf{15.2631}$.
+  - El sistema es un ciclo de período 2: s_0 = valle -> s_1 = pico -> s_2 = valle.
+  - La ecuación de valor recursiva es: V(valle) = r_valle + gamma * r_pico + gamma^2 * V(valle).
+  - Despejando: V(valle) = (r_valle + gamma * r_pico) / (1 - gamma^2).
+  - Con r_pico = -5 (política óptima: arrancar en valle, esperar en pico con recompensa 0):
+    V(valle) = (2 + 0.9 * 0) / (1 - 0.81) = 2 / 0.19 = 10.5263.
+  - Con r_pico = +1 (política óptima: arrancar en ambos estados):
+    V(valle) = (2 + 0.9 * 1) / (1 - 0.81) = 2.9 / 0.19 = 15.2631.
 - **2. Interdependencia temporal de decisiones:**
-  En aprendizaje por refuerzo con descuento $\gamma > 0$, el agente no toma decisiones aisladas; el valor (s, a)$ incorpora la suma descontada de todas las consecuencias futuras. Cuando {\text{pico}} = +1$, el valor global esperado sube a 15.26 y la política óptima en pico pasa de esperar a arrancar.
-- **3. Caso límite miope ($\gamma = 0$):**
-  Si $\gamma = 0$, el agente solo maximiza la recompensa inmediata del paso actual ((s, a) = r(s, a)$). Con {\text{pico}} = 1 > 0$, arrancaría sin considerar la estructura secuencial del proceso.
+  En aprendizaje por refuerzo con descuento gamma > 0, el valor Q(s, a) incorpora la suma descontada de todas las consecuencias futuras. Cuando r_pico = +1, el valor global esperado sube a 15.26 y la política óptima en pico pasa de esperar a arrancar.
+- **3. Caso límite miope (gamma = 0):**
+  Si gamma = 0, el agente solo maximiza la recompensa inmediata del paso actual (Q(s, a) = r(s, a)). Con r_pico = 1 > 0, arrancaría sin considerar la estructura secuencial del proceso.
+
+### E8d. Optimización de horarios de demanda con algoritmos genéticos
+- **1. Cálculo a mano de demanda horaria para (0, 1, 1, 1):**
+  - Hora 0: Base 20 + Horno 90 = 110 kW.
+  - Hora 1: Base 30 + Compresor 40 + Luz 25 + Bomba 15 = 110 kW.
+  - Hora 2: Base 50 + 0 = 50 kW.
+  - Hora 3: Base 40 + 0 = 40 kW.
+  - Demanda máxima: max(110, 110, 50, 40) = 110 kW.
+- **2. Explosión combinatoria de fuerza bruta:**
+  - Para 4 cargas y 4 horas: 4^4 = 256 combinaciones, evaluable en milisegundos.
+  - Para 20 cargas en 24 horas: 24^20 = 4.01 * 10^27 combinaciones. A 100 millones de evaluaciones por segundo, requeriría más de 1.2 billones de años. La búsqueda heurística evolutiva es indispensable.
+- **3. Múltiples soluciones óptimas globales:**
+  Existen varias configuraciones con el mismo pico óptimo de 110 kW. Por ejemplo, la fuerza bruta encuentra (0, 1, 1, 1) y el genético encuentra (0, 3, 2, 3) (Hora 0: 20+90=110; Hora 1: 30; Hora 2: 50+25=75; Hora 3: 40+40+15=95 kW; max = 110 kW). Ambas minimizan el costo tarifario de pico por igual.
