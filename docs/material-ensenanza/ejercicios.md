@@ -119,6 +119,16 @@ secciones 4 a 6):
 3. Propongan un criterio sin verdad para elegir el radio (por ejemplo, la silueta de la práctica E7). Pruébenlo con el
    tablero sintético: ¿coincide con el que mide la verdad?
 
+**E8b. Curva de sobreajuste y ajuste de hiperparámetros.** (ver ↗ [guia_ajuste_modelos.md](file:///home/agustin/proyectos_software/datamaq/datamaq-ml/docs/material-ensenanza/guia_ajuste_modelos.md) y script ↗ [ejemplo_issue_16.py](file:///home/agustin/proyectos_software/datamaq/datamaq-ml/docs/ejemplos/ejemplo_issue_16.py)):
+
+```bash
+python docs/ejemplos/ejemplo_issue_16.py
+```
+
+1. Corré el script y observá cómo evoluciona la exactitud de entrenamiento frente a la de prueba al pasar de profundidad 2 a 4 y sin límite (`None`).
+2. ¿Por qué el árbol sin límite alcanza 98,3 % en entrenamiento pero cae abruptamente a 57,5 % en prueba? ¿Qué aprendió el árbol que perjudicó su generalización?
+3. Utilizá la función de validación cruzada `evaluar_clasificador_cv` de ↗ [evaluacion_clasificadores.py](file:///home/agustin/proyectos_software/datamaq/datamaq-ml/src/infrastructure/sklearn/evaluacion_clasificadores.py). ¿Por qué la validación cruzada es más robusta que una única partición fija?
+
 ## Bloque 6 — Verificación del software de ML
 
 **E9. Qué prueba cada test.** El repo tiene pruebas unitarias, de integración, e2e y de arquitectura:
