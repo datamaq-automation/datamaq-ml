@@ -1,8 +1,5 @@
 # Guía docente — energy-ml
 
-> **NO PUBLICABLE A ESTUDIANTES.** Esta guía contiene respuestas del docente y hallazgos sobre datos reales de una planta (sección 8). El material para estudiantes está en `docs/material-ensenanza/` y usa solo el tablero sintético.
-
-
 > **Material para docentes, con respuestas.** No se publica en la app: los alumnos trabajan con el [cuaderno del alumno](cuaderno-alumno.md), que se sirve en `/guia` y no tiene respuestas. Las respuestas de cada actividad del cuaderno están en la [sección 17](#17-respuestas-del-cuaderno-del-alumno). Como el repositorio es público, un alumno que lo clone puede leer este archivo: si eso importa, conviene guardar una copia fuera del repo.
 
 **Referencia pedagógica:** este proyecto es un caso de estudio del curso **"Procesamiento de Aprendizaje Automático"** (https://isftn199.com.ar/cursos/procesamiento-aprendizaje-automatico). Implementa conceptos de **Unidad 2 (Clasificación y evaluación)** y **Unidad 3 (Árboles de decisión, algoritmos de inducción)**.
@@ -82,8 +79,8 @@ No hace falta base de datos, cuentas ni `.env`: los datos están en el repo.
 
 | Archivo | Qué es |
 | :--- | :--- |
-| `data/input/planta_2_a.csv` | Tablero "arriba" de una planta papelera (fuerza motriz, preparación de pasta) |
-| `data/input/planta_2_b.csv` | Tablero "abajo" de la misma planta (máquina papelera continua) |
+| `data/input/t1.csv` | Tablero "arriba" de una planta papelera (fuerza motriz, preparación de pasta) |
+| `data/input/t2.csv` | Tablero "abajo" de la misma planta (máquina papelera continua) |
 | `data/input/sintetico.csv` | Tablero **simulado** con tres equipos conocidos (90, 40 y 15 kW). Su verdad está en `data/verdad/sintetico.csv` |
 
 ```
@@ -99,8 +96,8 @@ instante,potencia_kw
 
 1. Los medidores envían telemetría a una base MySQL en un servidor.
 2. Un script **no versionado** (`tmp/`, ignorado por git) la exportó una vez, filtrando solo datos confiables y pasando de W a kW.
-3. Los nombres reales se reemplazaron por `planta_2_a` / `planta_2_b`: los datos son **anonimizados**.
-4. Los CSV se versionan para que cualquiera pueda clonar y trabajar **sin acceso a la base**.
+3. Los nombres reales se reemplazaron por `t1` / `t2`: los datos son **anonimizados**.
+4. Los CSV didácticos se sincronizan con `./run.sh fetch-data` para que cualquiera pueda clonar y trabajar **sin acceso a la base**.
 
 `data/output/` también existe en el repo pero está **vacía** (`.gitignore`): ahí cada uno genera sus propios resultados con `./run.sh train`.
 
@@ -148,7 +145,7 @@ Consecuencias para charlar:
 Al principio el umbral era **60 kW fijo**. ¿Por qué 60 y no 40 u 80? El **histograma de |ΔP|** (paso 2 de la página) lo responde:
 
 ```
-planta_2_a  (dos montañas)                planta_2_b  (sin valle)
+t1  (dos montañas)                t2  (sin valle)
  ruido ████████████                        ruido ██████████
        ███                                       ████████
        ▌         valle                           ██████
@@ -156,14 +153,14 @@ planta_2_a  (dos montañas)                planta_2_b  (sin valle)
                          ███████                 ███ ███ ███ ██ ██ ...
 ```
 
-- **`planta_2_a`**: dos montañas con un valle vacío entre 30 y 70 kW. Cualquier umbral ahí da lo mismo; por eso 60 "andaba".
-- **`planta_2_b`**: el ruido baja de a poco y se mezcla con los eventos. No hay valle.
+- **`t1`**: dos montañas con un valle vacío entre 30 y 70 kW. Cualquier umbral ahí da lo mismo; por eso 60 "andaba".
+- **`t2`**: el ruido baja de a poco y se mezcla con los eventos. No hay valle.
 
 ### Tres ideas que se probaron
 
 | Método | Resultado |
 | :--- | :--- |
-| Mediana + k·MAD del ruido | Ningún *k* sirve para los dos tableros: con k = 5, en `planta_2_b` el umbral sube a 103 kW y se pierde la carga de 88 kW. Cambia un número arbitrario por otro. |
+| Mediana + k·MAD del ruido | Ningún *k* sirve para los dos tableros: con k = 5, en `t2` el umbral sube a 103 kW y se pierde la carga de 88 kW. Cambia un número arbitrario por otro. |
 | **Método de Otsu** (elegido) | Prueba todos los cortes y elige el que **maximiza la varianza entre** los dos grupos. Además mide qué tan buena es la separación. |
 | Sin umbral, DBSCAN sobre todo | Más limpio en teoría, pero DBSCAN pasaría a depender todavía más de su radio. |
 
@@ -173,9 +170,9 @@ planta_2_a  (dos montañas)                planta_2_b  (sin valle)
 
 | Caso | Umbral | η | Lectura |
 | :--- | :--- | :--- | :--- |
-| `planta_2_a`, mes | 51,3 kW | **0,87** | Valle claro |
-| `planta_2_a`, una semana | 50,8 kW | **0,89** | Valle claro, umbral estable |
-| `planta_2_b`, mes | 45,6 kW | **0,71** | Sin valle → `WARNING` |
+| `t1`, mes | 51,3 kW | **0,87** | Valle claro |
+| `t1`, una semana | 50,8 kW | **0,89** | Valle claro, umbral estable |
+| `t2`, mes | 45,6 kW | **0,71** | Sin valle → `WARNING` |
 | Una sola montaña (simulado) | — | ~0,68 | Nivel base: no hay nada que separar |
 
 Por eso el corte de confianza es `NILM_SEPARACION_MINIMA = 0.8`.
@@ -215,17 +212,17 @@ Una carga clara pero rara (menos del 3 % de los saltos) da η bajo y el sistema 
 
 | | Semana 1 | Semana 2 | Semana 3 | Días sueltos |
 | :--- | :--- | :--- | :--- | :--- |
-| `planta_2_a` | 0,91 | 0,85 | 0,86 | 0,77 a 0,96 |
-| `planta_2_b` | 0,72 | 0,71 | 0,69 | 0,65 a 0,77 |
+| `t1` | 0,91 | 0,85 | 0,86 | 0,77 a 0,96 |
+| `t2` | 0,72 | 0,71 | 0,69 | 0,65 a 0,77 |
 
-`planta_2_b` queda **siempre** en la zona del azar: no es mala suerte de un período, es la forma de esa señal.
+`t2` queda **siempre** en la zona del azar: no es mala suerte de un período, es la forma de esa señal.
 
 **Cómo elegir otro valor:**
 - **Más alto (0,85–0,9)** si un umbral equivocado es caro (por ejemplo, si el resultado alimenta una decisión de mantenimiento). Vas a ver más avisos, también en cargas reales poco frecuentes.
 - **Más bajo (0,75)** si preferís menos avisos y aceptás que, con ruido de forma uniforme, alguno sea casualidad. Nunca por debajo de ~0,7: ahí cae una sola montaña típica.
 - **Para un medidor nuevo**: mirá su η en varias semanas. Si es estable y alto, 0,8 sobra; si oscila alrededor del corte, el problema es la señal, no el número.
 
-**La lección central**: el mismo algoritmo funciona perfecto en un tablero y duda en el otro, **y lo dice**. En `planta_2_b` el umbral deja entrar ruido que se encadena con la carga real: aparece ~75 kW en vez de los ~88 kW que da un umbral de 60 kW. El sistema no puede arreglarlo solo, pero avisa en el log, en el paso 2 de la página y en la tarjeta de la carga.
+**La lección central**: el mismo algoritmo funciona perfecto en un tablero y duda en el otro, **y lo dice**. En `t2` el umbral deja entrar ruido que se encadena con la carga real: aparece ~75 kW en vez de los ~88 kW que da un umbral de 60 kW. El sistema no puede arreglarlo solo, pero avisa en el log, en el paso 2 de la página y en la tarjeta de la carga.
 
 ---
 
@@ -238,9 +235,9 @@ El radio (`eps`) era **8 kW fijo**, sin relación con la escala de cada medidor.
 
 | Caso | Ruido | Radio | Resultado |
 | :--- | :--- | :--- | :--- |
-| `planta_2_a`, mes | 5,4 kW | 10,8 kW | ~91 kW (426 ↑ / 388 ↓) |
-| `planta_2_a`, semana | 5,0 kW | 9,9 kW | ~92 kW (135 ↑ / 126 ↓) |
-| `planta_2_b`, mes | 14,5 kW | 29,0 kW | ~75 kW (sin cambios: su problema es el umbral) |
+| `t1`, mes | 5,4 kW | 10,8 kW | ~91 kW (426 ↑ / 388 ↓) |
+| `t1`, semana | 5,0 kW | 9,9 kW | ~92 kW (135 ↑ / 126 ↓) |
+| `t2`, mes | 14,5 kW | 29,0 kW | ~75 kW (sin cambios: su problema es el umbral) |
 
 ### Cómo se llegó a esto (vale contarlo en clase)
 
@@ -276,7 +273,7 @@ DBSCAN también necesita saber **cuántos eventos** hacen falta para que un grup
 
 Hay un **hueco** entre 0,12 y 0,59. El criterio es poner el corte **en el medio del hueco**: 0,5 separa los dos grupos con margen hacia ambos lados.
 
-**2. Por qué una carga real no da exactamente 1.** Con una medición cada 5 minutos, algunos eventos no se detectan (un apagado lento puede quedar repartido en dos saltos chicos). En `planta_2_a` la carga principal tiene 426 encendidos y 388 apagados: se pierde ~9 % de los eventos de un tipo. Simulando una carga ON/OFF perfecta a la que se le pierde cada evento con probabilidad *p*:
+**2. Por qué una carga real no da exactamente 1.** Con una medición cada 5 minutos, algunos eventos no se detectan (un apagado lento puede quedar repartido en dos saltos chicos). En `t1` la carga principal tiene 426 encendidos y 388 apagados: se pierde ~9 % de los eventos de un tipo. Simulando una carga ON/OFF perfecta a la que se le pierde cada evento con probabilidad *p*:
 
 | Ciclos en el rango | p = 10 % | p = 20 % | p = 30 % |
 | :--- | :--- | :--- | :--- |
@@ -301,10 +298,10 @@ Con esto, **los tres parámetros que se estiman de los datos** son el umbral, el
 
 ## 8. Hallazgos en los datos
 
-- **Carga ON/OFF de ~91 kW en `planta_2_a`**: unos 430 encendidos y 390 apagados en 21 días, **≈18 ciclos por día**. Estable al cambiar el rango. Es el hallazgo más sólido.
-- **Carga de ~88 kW en `planta_2_b`** con umbral de 60 kW; ~75 kW con el automático (dudoso, §6).
-- **"Carga" de ~222 kW con 2 encendidos y 18 apagados** en `planta_2_a`: con el mínimo automático (21) no llega a ser carga; aparece si lo fijás en 10 (`NILM_MIN_EVENTOS=10`). Un equipo real se enciende y apaga parecido: la regla `Carga.es_on_off` (`NILM_BALANCE_MINIMO = 0.5`: uno puede ser a lo sumo el doble del otro) la marca **dudosa**. Puede ser un arranque escalonado, una parada de planta o varios equipos apagándose juntos.
-- **Eventos sin grupo**: 37 en `planta_2_a` (incluye los de ~222 kW). DBSCAN prefiere no forzarlos.
+- **Carga ON/OFF de ~91 kW en `t1`**: unos 430 encendidos y 390 apagados en 21 días, **≈18 ciclos por día**. Estable al cambiar el rango. Es el hallazgo más sólido.
+- **Carga de ~88 kW en `t2`** con umbral de 60 kW; ~75 kW con el automático (dudoso, §6).
+- **"Carga" de ~222 kW con 2 encendidos y 18 apagados** en `t1`: con el mínimo automático (21) no llega a ser carga; aparece si lo fijás en 10 (`NILM_MIN_EVENTOS=10`). Un equipo real se enciende y apaga parecido: la regla `Carga.es_on_off` (`NILM_BALANCE_MINIMO = 0.5`: uno puede ser a lo sumo el doble del otro) la marca **dudosa**. Puede ser un arranque escalonado, una parada de planta o varios equipos apagándose juntos.
+- **Eventos sin grupo**: 37 en `t1` (incluye los de ~222 kW). DBSCAN prefiere no forzarlos.
 - **Más encendidos que apagados** en casi todas las cargas (426 contra 388). Una hipótesis para verificar: con una medición cada 5 minutos, un apagado puede quedar "repartido" en dos saltos chicos que no superan el umbral.
 
 ---
@@ -316,7 +313,7 @@ Las tres corren **el mismo caso de uso** sobre los mismos datos: son *mecanismos
 ### Página web (`/`)
 Muestra los 4 pasos con números grandes y una frase cada uno; el detalle está plegado en "¿Qué significa esto?". El histograma usa **escala de raíz cuadrada** para que los eventos (cientos) no queden invisibles al lado del ruido (miles). Las cargas se leen en lenguaje natural: *"Se encendió 429 veces y se apagó 391: unas 18 veces por día"*.
 
-### API (`GET /api/v1/identify-loads?medidor=planta_2_a&desde=2026-09-12&hasta=2026-10-03`)
+### API (`GET /api/v1/identify-loads?medidor=t1&desde=2026-09-12&hasta=2026-10-03`)
 
 | Campo | Qué es |
 | :--- | :--- |
@@ -342,7 +339,7 @@ INFO:     Umbral automático: 51.3 kW (Otsu, separación ruido/eventos η=0.87)
 INFO:     Radio automático: 10.76 kW (mayor entre Freedman–Diaconis y 2 × ruido de la señal, ruido = 5.4 kW)
 INFO:     Mínimo automático: 21 eventos por carga (uno por día analizado, al menos 3)
 WARNING:  No hay un valle claro entre ruido y eventos (η=0.71 < 0.80): el umbral es poco confiable
-ERROR:    Medidores desconocidos: nada (disponibles: planta_2_a, planta_2_b)
+ERROR:    Medidores desconocidos: nada (disponibles: t1, t2)
 ```
 
 - `INFO`: cada paso y su resultado.
@@ -357,9 +354,9 @@ ERROR:    Medidores desconocidos: nada (disponibles: planta_2_a, planta_2_b)
 Toda la configuración vive en `src/infrastructure/settings/config.py` con su valor por defecto. **`.env` es solo para secretos** (hoy no hay ninguno). Hay dos formas de cambiar un valor sin tocar código:
 
 ```bash
-./run.sh train planta_2_b --umbral 60                 # argumento: solo para esa corrida
+./run.sh train t2 --umbral 60                 # argumento: solo para esa corrida
 ./run.sh train --separacion-minima 0.85 --balance-minimo 0.7
-NILM_UMBRAL_KW=60 ./run.sh train planta_2_b            # variable de entorno: también sirve para ./run.sh start
+NILM_UMBRAL_KW=60 ./run.sh train t2            # variable de entorno: también sirve para ./run.sh start
 ```
 
 Si usás las dos, **gana el argumento**. Los argumentos validan su rango (por ejemplo, `--separacion-minima 2` se rechaza con un mensaje).
@@ -508,21 +505,21 @@ El repo empezó como un clasificador de diabetes y se transformó **con commits 
 
 Ordenados de menor a mayor dificultad. Los resultados esperados se verificaron con los datos del repo.
 
-**1. Recorrer el algoritmo.** Abrí la página, elegí `planta_2_a` y explicá con tus palabras cada uno de los 4 pasos. ¿Qué te dice el histograma?
+**1. Recorrer el algoritmo.** Abrí la página, elegí `t1` y explicá con tus palabras cada uno de los 4 pasos. ¿Qué te dice el histograma?
 
-**2. Umbral fijo vs. automático.** Corré `./run.sh train planta_2_b` y `NILM_UMBRAL_KW=60 ./run.sh train planta_2_b`. ¿Qué carga aparece en cada caso? ¿A cuál le creés?
+**2. Umbral fijo vs. automático.** Corré `./run.sh train t2` y `NILM_UMBRAL_KW=60 ./run.sh train t2`. ¿Qué carga aparece en cada caso? ¿A cuál le creés?
 *Esperado*: automático ~75 kW con `WARNING` (η = 0,71); con 60 kW, ~88 kW. El histograma sin valle explica la duda.
 
-**3. Bajar el umbral.** `NILM_UMBRAL_KW=20 ./run.sh train planta_2_a`. ¿Qué le pasa a la carga principal?
+**3. Bajar el umbral.** `NILM_UMBRAL_KW=20 ./run.sh train t1`. ¿Qué le pasa a la carga principal?
 *Esperado*: entran ~1040 eventos (contra ~850) y la carga "baja" a ~79 kW con ≈22 ciclos/día: saltos de ruido de 20–70 kW se encadenan con la carga real y corren el promedio.
 
-**4. Estabilidad en el tiempo.** `./run.sh train planta_2_a --desde 2026-09-15 --hasta 2026-09-22`. ¿Se sostiene la carga?
+**4. Estabilidad en el tiempo.** `./run.sh train t1 --desde 2026-09-15 --hasta 2026-09-22`. ¿Se sostiene la carga?
 *Esperado*: sí, ~92 kW y ≈18/día (umbral 50,8 kW, η = 0,89). Una carga real es estable.
 
-**5. El radio importa.** `NILM_EPS_KW=8 ./run.sh train planta_2_a` y comparalo con el automático (10,8 kW). ¿Cuántos eventos quedan sin grupo en cada caso? ¿Cambia la carga principal?
+**5. El radio importa.** `NILM_EPS_KW=8 ./run.sh train t1` y comparalo con el automático (10,8 kW). ¿Cuántos eventos quedan sin grupo en cada caso? ¿Cambia la carga principal?
 *Esperado*: con 8 kW quedan 44 sin grupo y con el automático 37; la carga principal casi no cambia (~90,5 contra ~90,8 kW). El radio afina, pero no decide el resultado.
 
-**6. La carga sospechosa.** Corré `NILM_MIN_EVENTOS=10 ./run.sh train planta_2_a`: aparece una carga de ~222 kW con 2 encendidos y 18 apagados. ¿Por qué no aparece con el mínimo automático? ¿Por qué tiene tan pocos encendidos? Proponé dos explicaciones físicas y cómo verificarlas mirando los CSV (pista: buscá los instantes de esos saltos).
+**6. La carga sospechosa.** Corré `NILM_MIN_EVENTOS=10 ./run.sh train t1`: aparece una carga de ~222 kW con 2 encendidos y 18 apagados. ¿Por qué no aparece con el mínimo automático? ¿Por qué tiene tan pocos encendidos? Proponé dos explicaciones físicas y cómo verificarlas mirando los CSV (pista: buscá los instantes de esos saltos).
 
 **7. Leer el código.** En `services.py`, seguí `estimar_umbral` línea por línea. ¿Qué es `varianza_entre`? ¿Por qué se recorren los saltos ordenados?
 
@@ -533,7 +530,7 @@ Ordenados de menor a mayor dificultad. Los resultados esperados se verificaron c
 
 **10. Un test que te frene.** Agregá una función de 80 líneas en el caso de uso y corré `./run.sh test`. ¿Qué test falla y por qué es útil?
 
-**11. Elegir una regla de decisión.** Corré `./run.sh train --balance-minimo 0.9` y `./run.sh train planta_2_a --desde 2026-09-20 --hasta 2026-09-21 --balance-minimo 0.3`. ¿Qué cargas cambian de "confiable" a "dudosa" o al revés? Con lo que viste, ¿qué valor elegirías para analizar un solo día, y por qué?
+**11. Elegir una regla de decisión.** Corré `./run.sh train --balance-minimo 0.9` y `./run.sh train t1 --desde 2026-09-20 --hasta 2026-09-21 --balance-minimo 0.3`. ¿Qué cargas cambian de "confiable" a "dudosa" o al revés? Con lo que viste, ¿qué valor elegirías para analizar un solo día, y por qué?
 *Esperado*: con 0,9 nada cambia, pero la carga de ~91 kW (388/426 = 0,91) queda **al límite**: un poco más estricto y una carga real pasaría a "dudosa". En el día del 20-09 la carga de ~93 kW da 16/19 = 0,84 y la de ~212 kW da 0: cualquier corte entre 0,1 y 0,8 da el mismo resultado. Es el "hueco" de la sección 7.
 
 **12. Hacia lo supervisado.** Diseñá cómo etiquetarías eventos ("este salto fue el compresor") y qué clasificador entrenarías. ¿Qué features agregarías además de |ΔP| (hora del día, duración encendido, corriente por fase, factor de potencia)?
@@ -610,12 +607,12 @@ Todas se obtuvieron corriendo el sistema con los datos del repositorio. Los tiem
 - **Criterio**: que expliquen *por qué* gana el corte (grupos parejos y medias lejanas), no solo que lleguen al número.
 
 ### Actividad 3 — El histograma (20 min)
-- `planta_2_a`: dos montañas, valle entre ~30 y ~70 kW, umbral automático 51,3 kW (η = 0,87).
-- `planta_2_b`: el ruido baja de a poco, no hay valle; aviso de umbral poco confiable (η = 0,71).
+- `t1`: dos montañas, valle entre ~30 y ~70 kW, umbral automático 51,3 kW (η = 0,87).
+- `t2`: el ruido baja de a poco, no hay valle; aviso de umbral poco confiable (η = 0,71).
 - Predicción con 60 kW: la carga **sube** (de ~75 a ~88 kW), porque se dejan afuera saltos de ruido de 46–60 kW que corrían el promedio para abajo.
 
 ### Actividad 4 — Radio y mínimo (20 min)
-- `planta_2_a`: radio automático 10,76 kW (ganó el piso de **2 × ruido**, con ruido = 5,4 kW), mínimo 21 eventos.
+- `t1`: radio automático 10,76 kW (ganó el piso de **2 × ruido**, con ruido = 5,4 kW), mínimo 21 eventos.
 - Con `--radio 2`: los eventos sin grupo suben de 37 a **121**, y la carga queda en ~92,3 kW con menos ciclos (353 contra 388): el radio chico deja afuera eventos legítimos.
 - En una semana el mínimo baja a **7**: con menos días, un equipo real junta menos eventos.
 
@@ -655,7 +652,7 @@ Precisión 100 %, sin cargas inventadas. El umbral queda **por encima de 40 kW**
 
 - Achicar el radio **separa** grupos (corta los "puentes").
 - La combinación que encuentra los tres es **umbral 10 + radio 3**. El radio automático (≈ 2 × ruido) es demasiado generoso cuando hay equipos de tamaños cercanos.
-- **Lo central de la actividad**: la combinación se encontró **comparando con la verdad**. En `planta_2_a` no se puede hacer: para ajustar hace falta saber la respuesta, es decir, **datos etiquetados**. Es el argumento para pasar a supervisado.
+- **Lo central de la actividad**: la combinación se encontró **comparando con la verdad**. En `t1` no se puede hacer: para ajustar hace falta saber la respuesta, es decir, **datos etiquetados**. Es el argumento para pasar a supervisado.
 
 ### Actividad 9 — Tu propio tablero (20 min)
 - Semilla 7: resultados casi iguales (90 kW al 98 %; 40 y 15 kW no encontradas). El comportamiento no depende de una semilla en particular.
