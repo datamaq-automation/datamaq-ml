@@ -31,7 +31,7 @@ respuesta se puede planificar el mantenimiento y medir la disponibilidad de cada
 3. **Atribuir intervalos.** Cada encendido se empareja con su apagado cuando la firma coincide, y el intervalo se mide
    con las mediciones reales (no con la potencia nominal del equipo).
 4. **Validar sin verdad de terreno.** No hay forma de saber qué equipo se encendió. Se miden consistencia, cierres y
-   plausibilidad.
+   plausibilidad según el ↗ [protocolo-validacion.md](file:///home/agustin/proyectos_software/datamaq/datamaq-ml/docs/material-ensenanza/protocolo-validacion.md) (ver también ↗ [ejemplo_issue_20.py](file:///home/agustin/proyectos_software/datamaq/datamaq-ml/docs/ejemplos/ejemplo_issue_20.py)).
 
 ## 4. Resultados agregados
 

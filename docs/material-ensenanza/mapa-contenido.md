@@ -32,6 +32,7 @@ Los ejercicios se hacen con el tablero sintético (`./run.sh simulate`).
 | Separación entre entrenamiento y verdad de terreno | `data/verdad/` (solo para evaluar) y `src/infrastructure/csv/verdad_repository.py` | E5 |
 | Pruebas de arquitectura y de unidad sobre los algoritmos | `tests/` y `./run.sh gauntlet` | E9 |
 | Medir el efecto de un cambio de parámetro | `NILM_UMBRAL_KW`, `NILM_EPS_KW` en `src/infrastructure/settings/config.py` | E6, E8 |
+| Protocolo de validación sin verdad de terreno (cobertura y residuo) | `docs/material-ensenanza/protocolo-validacion.md`, `docs/ejemplos/ejemplo_issue_20.py` | E10 |
 
 ## Ejercicios por bloque
 
