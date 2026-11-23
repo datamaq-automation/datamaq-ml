@@ -77,6 +77,15 @@ Dados los 4 equipos industriales: A (compresor), B (bomba), C (ventilador) y D (
 2. ¿Por qué se necesitan 3 cláusulas no recursivas para cubrir todos los pares dependientes en una cadena lineal de 4 equipos?
 3. ¿Cómo se reescribe este mismo concepto en solo 2 cláusulas si se permite recursión en la cabeza? Verifiquen con `python docs/ejemplos/ejemplo_issue_14.py`.
 
+**E4d. Regresión y pronóstico de demanda con partición temporal.**
+Dada la serie sintética de 10 días de energía diaria en kWh: `[100, 104, 99, 105, 101, 107, 102, 108, 104, 110]`:
+1. Entrenando con los primeros 7 días y evaluando sobre los últimos 3, calculen el MAE y el RMSE para:
+   - El promedio histórico de entrenamiento.
+   - La persistencia (último valor observado).
+   - La recta de tendencia lineal (mínimos cuadrados).
+2. ¿Por qué el RMSE es estrictamente mayor o igual que el MAE en todos los modelos? ¿En qué escenario operativo de planta es más relevante el RMSE que el MAE?
+3. Ejecuten `./run.sh forecast`. Expliquen por qué una partición aleatoria (o intercalada) produce un error artificialmente más bajo que la partición temporal cronológica y por qué reportar ese número falsea la capacidad predictiva del sistema.
+
 ## Bloque 3 — Medidas de rendimiento
 
 **E5. Medir sin inventar números.** Con la verdad del tablero:
