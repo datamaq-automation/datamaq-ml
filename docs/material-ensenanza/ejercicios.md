@@ -71,6 +71,12 @@ Con los 6 arranques sintéticos de prueba: (88, 90), (92, 90), (40, 40), (42, 40
 2. ¿Por qué un nuevo arranque de 60 kW es clasificado por AQ como clase 40 kW si no había ningún dato de 60 kW en el entrenamiento?
 3. Comparen conceptualmente las reglas de AQ con las obtenidas por un árbol CART (`./run.sh supervise`) y las del espacio de versiones: comparen número de reglas, complejidad e interpretabilidad. Verifiquen con `python docs/ejemplos/ejemplo_issue_13.py`.
 
+**E4c. Programación Lógica Inductiva y Algoritmo FOIL.**
+Dados los 4 equipos industriales: A (compresor), B (bomba), C (ventilador) y D (luminaria), con los hechos de fondo observados: `despues(A, B)`, `despues(C, A)` y `despues(D, C)`:
+1. Calculen a mano la ganancia de información FOIL de la primera cláusula candidata: `dependiente(X, Y) :- despues(X, Y)`. Comprueben que arroja exactamente 3.00 bits.
+2. ¿Por qué se necesitan 3 cláusulas no recursivas para cubrir todos los pares dependientes en una cadena lineal de 4 equipos?
+3. ¿Cómo se reescribe este mismo concepto en solo 2 cláusulas si se permite recursión en la cabeza? Verifiquen con `python docs/ejemplos/ejemplo_issue_14.py`.
+
 ## Bloque 3 — Medidas de rendimiento
 
 **E5. Medir sin inventar números.** Con la verdad del tablero:
