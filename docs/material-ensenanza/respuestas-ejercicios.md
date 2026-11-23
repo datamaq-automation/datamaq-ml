@@ -58,6 +58,24 @@ Dados los ejemplos:
   - **Espacio de Versiones:** Mantiene el par de límites S y G. Solo admite conceptos conjuntivos convexos; si una clase se dispersa entre negativos, colapsa a conjunto vacío a menos que se fragmente manualmente.
   - **Árbol CART:** Genera una partición ortogonal jerárquica con 2 umbrales de decisión (ej. cortes en ~28 kW y ~65 kW). F1 = 1.0, pero la estructura anidada `SI ... SINO SI ...` es menos directa para el operador que los rangos nominales de AQ.
 
+### E4c. Programación Lógica Inductiva y Algoritmo FOIL
+- **1. Cálculo a mano de Ganancia FOIL:**
+  - Universo: 12 pares ordenados posibles (excluyendo diagonales $X=Y$).
+  - Positivos totales $p_0 = 6$, negativos totales $n_0 = 6$.
+  - Cláusula `dependiente(X, Y) :- despues(X, Y)` cubre directamente 3 positivos: $(A, B), (C, A), (D, C)$ y 0 negativos.
+  - $p_1 = 3, n_1 = 0, t = 3$.
+  - $\text{Gain} = 3 \cdot (\log_2(3/3) - \log_2(6/12)) = 3 \cdot (0 - (-1)) = \mathbf{3.00\text{ bits}}$.
+- **2. Tres cláusulas para cadena de 4 equipos:**
+  Porque en una cadena lineal sin recursión cada cláusula fija la longitud exacta del camino en el grafo:
+  - Longitud 1: `despues(X, Y)` cubre saltos directos (3 pares).
+  - Longitud 2: `despues(X, Z), despues(Z, Y)` cubre saltos de dos pasos (2 pares).
+  - Longitud 3: `despues(X, Z), despues(Z, W), despues(W, Y)` cubre el salto de tres pasos $(D, B)$.
+  Cualquier cadena de $N$ equipos requiere $N-1$ cláusulas no recursivas.
+- **3. Formulación recursiva compacta (2 cláusulas):**
+  - Caso base: `dependiente(X, Y) :- despues(X, Y).`
+  - Paso inductivo recursivo: `dependiente(X, Y) :- despues(X, Z), dependiente(Z, Y).`
+  Esta versión cubre cadenas de cualquier longitud arbitraria con número constante de cláusulas.
+
 ---
 
 ## Bloque 3 — Medidas de Rendimiento
