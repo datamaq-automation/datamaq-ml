@@ -25,4 +25,20 @@ def setup_logging() -> logging.Logger:
     return logger
 
 
+def canal_terminal(nombre: str, flujo) -> logging.Logger:
+    """Canal para la salida de las CLI: solo el mensaje, sin el prefijo «INFO:» del servidor.
+
+    Es el mismo sistema de logging, con otro formato. Así la presentación de la terminal no
+    necesita importar `logging` por su cuenta (ver tests/test_logging.py).
+    """
+    canal = logging.getLogger(nombre)
+    if not canal.handlers:
+        manejador = logging.StreamHandler(flujo)
+        manejador.setFormatter(logging.Formatter("%(message)s"))
+        canal.addHandler(manejador)
+        canal.setLevel(logging.INFO)
+        canal.propagate = False
+    return canal
+
+
 logger = setup_logging()
