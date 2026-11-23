@@ -186,14 +186,19 @@ python docs/ejemplos/ejemplo_issue_20.py
 3. Diseñen un vector sintético de 8 intervalos donde la cobertura sea del 95 % pero que deba ser rechazado por contener energía inventada en uno de los intervalos (residuo negativo). Verifiquen su caso con `evaluar_consistencia_dia`.
 
 **E8c. Despacho horario de cargas con Q-Learning tabular.**
-Un equipo industrial opera bajo un régimen tarifario de dos franjas cíclicas: valle (tarifa baja) y pico (tarifa alta), con $\gamma = 0.9$:
-- En valle, arrancar genera un beneficio neto de $+2$.
-- En pico, arrancar genera un costo {\text{pico}}$.
-- Esperar en cualquier estado genera bash$.
+Un equipo industrial opera bajo un régimen tarifario de dos franjas cíclicas: valle (tarifa baja) y pico (tarifa alta), con gamma = 0.9:
+- En valle, arrancar genera un beneficio neto de +2.
+- En pico, arrancar genera un costo r_pico.
+- Esperar en cualquier estado genera 0.
 
-1. Calculen analíticamente el valor esperado de Bellman (\text{valle})$ para:
-   - {\text{pico}} = -5$ (arrancar en valle y esperar en pico). Comprueben que da $\approx 10.53$.
-   - {\text{pico}} = +1$ (arrancar en ambos períodos). Comprueben que da $\approx 15.26$.
-2. Ejecuten r_pico = -5: Q(valle, arrancar) = 10.53 (analítico 10,53); política {'valle': 'arrancar', 'pico': 'esperar'}
-r_pico = +1: Q(valle, arrancar) = 15.26 (analítico 15,26); política {'valle': 'arrancar', 'pico': 'arrancar'}. ¿Por qué modificar la recompensa del estado pico cambia la decisión óptima que toma el agente en el estado valle?
-3. ¿Qué sucedería con la política si el factor de descuento fuera $\gamma = 00
+1. Calculen analíticamente el valor esperado de Bellman V(valle) para:
+   - r_pico = -5 (arrancar en valle y esperar en pico). Comprueben que da aproximadamente 10.53.
+   - r_pico = +1 (arrancar en ambos períodos). Comprueben que da aproximadamente 15.26.
+2. Ejecuten `python docs/ejemplos/ejemplo_issue_18.py`. ¿Por qué modificar la recompensa del estado pico cambia la decisión óptima que toma el agente en el estado valle?
+3. ¿Qué sucedería con la política si el factor de descuento fuera gamma = 0?
+
+**E8d. Optimización de horarios de demanda con algoritmos genéticos.**
+Dadas 4 cargas: horno (90 kW), compresor (40 kW), luz (25 kW) y bomba (15 kW), y una demanda base horaria para 4 horas: [20, 30, 50, 40] kW:
+1. Calculen a mano la demanda en cada una de las 4 horas y el pico máximo resultante para el individuo (0, 1, 1, 1). Comprueben que da exactamente 110 kW.
+2. ¿Por qué la fuerza bruta (4^4 = 256 combinaciones) es viable en este caso, pero se vuelve intratable para 20 cargas en 24 horas (24^20)?
+3. Ejecuten `python docs/ejemplos/ejemplo_issue_19.py`. ¿Por qué el algoritmo genético puede devolver una asignación horaria diferente a la de la fuerza bruta (ej. (0, 3, 2, 3)) y sin embargo ambas ser óptimas?
