@@ -122,3 +122,13 @@ secciones 4 a 6):
 2. Describan una prueba que detectaría que alguien cambió la potencia de un intervalo sin querer. ¿Dónde la escribirían?
 3. ¿Por qué el gauntlet revisa que el dominio no importe infraestructura? ¿Qué problema evita en un proyecto que
    cambia de base de datos o de librería de ML?
+
+**E10. Validación sin verdad de terreno: cobertura frente a residuo.** En problemas industriales reales no hay etiquetas de referencia. Guía completa en ↗ [protocolo-validacion.md](file:///home/agustin/proyectos_software/datamaq/datamaq-ml/docs/material-ensenanza/protocolo-validacion.md) y script reproducible en ↗ [ejemplo_issue_20.py](file:///home/agustin/proyectos_software/datamaq/datamaq-ml/docs/ejemplos/ejemplo_issue_20.py):
+
+```bash
+python docs/ejemplos/ejemplo_issue_20.py
+```
+
+1. Corran el script y confirmen la cobertura de 79,2 %. ¿En qué intervalos se concentra el residuo crítico mayor a 0,5 kWh?
+2. Si un algoritmo atribuye 10 kWh de más en el turno mañana y 10 kWh de menos en el turno tarde, ¿qué le pasa a la cobertura diaria total? ¿Por qué la cobertura global sola puede ser engañosa?
+3. Diseñen un vector sintético de 8 intervalos donde la cobertura sea del 95 % pero que deba ser rechazado por contener energía inventada en uno de los intervalos (residuo negativo). Verifiquen su caso con `evaluar_consistencia_dia`.
