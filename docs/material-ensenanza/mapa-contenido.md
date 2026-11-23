@@ -10,7 +10,7 @@ Cada fila conecta un tema del temario del módulo «Procesamiento de Aprendizaje
 |---|---|---|
 | Concepto, técnicas y objetivos del aprendizaje | ↗ [docs/guia-docente.md](file:///home/agustin/proyectos_software/datamaq/datamaq-ml/docs/guia-docente.md) (§1 y §5), ↗ [docs/material-ensenanza/programa.md](file:///home/agustin/proyectos_software/datamaq/datamaq-ml/docs/material-ensenanza/programa.md) | Semana 1, `./run.sh simulate` |
 | El aprendizaje como búsqueda en el espacio de hipótesis | ↗ [src/domain/cargas/espacio_versiones.py](file:///home/agustin/proyectos_software/datamaq/datamaq-ml/src/domain/cargas/espacio_versiones.py), ↗ [src/domain/cargas/version_space_learner.py](file:///home/agustin/proyectos_software/datamaq/datamaq-ml/src/domain/cargas/version_space_learner.py) | E4 (límites S y G) |
-| Aprendizaje inductivo vs. deductivo | ↗ [docs/ejemplos/ejemplo_issue_12.py](file:///home/agustin/proyectos_software/datamaq/datamaq-ml/docs/ejemplos/ejemplo_issue_12.py) | E10, Contraste de reglas |
+| Aprendizaje inductivo vs. deductivo | ↗ [docs/material-ensenanza/reglas_deductivas_ejemplo.md](file:///home/agustin/proyectos_software/datamaq/datamaq-ml/docs/material-ensenanza/reglas_deductivas_ejemplo.md), ↗ [docs/ejemplos/ejemplo_issue_12.py](file:///home/agustin/proyectos_software/datamaq/datamaq-ml/docs/ejemplos/ejemplo_issue_12.py) | E0, Contraste de reglas |
 | Diseño de modelos y evaluación de aprendizaje | ↗ [src/domain/cargas/evaluacion.py](file:///home/agustin/proyectos_software/datamaq/datamaq-ml/src/domain/cargas/evaluacion.py), ↗ [src/application/cargas/use_cases/evaluar_identificacion.py](file:///home/agustin/proyectos_software/datamaq/datamaq-ml/src/application/cargas/use_cases/evaluar_identificacion.py) | E5 (`./run.sh evaluate`) |
 
 ---

@@ -6,6 +6,16 @@
 
 ## Bloque 1 — Aprendizaje Supervisado: Árboles y Modelos Probabilísticos
 
+### E0. Regla del experto frente a regla inducida
+- **1. Cortes inductivos a mano:**
+  - Punto medio 1: `(15 + 40) / 2 = 27.5 kW`.
+  - Punto medio 2: `(40 + 90) / 2 = 65.0 kW`.
+- **2. Matrices de confusión y exactitud:**
+  - Ambos obtienen exactitud `5 / 6 = 83.33 %`.
+  - Matriz Experto: acierta 15 (en 20), acierta 40 (en 30 y 55), acierta 90 (en 62 y 70). Falla en `ΔP = 26` (lo clasifica como 40, cuando era 15).
+  - Matriz Inducida: acierta 15 (en 20 y 26), acierta 40 (en 30 y 55), acierta 90 (en 70). Falla en `ΔP = 62` (lo clasifica como 40, cuando era 90).
+- **3. Peligro de equivalencia:** No son equivalentes porque sus fallos tienen consecuencias operativas asimétricas: clasificar un motor principal de 90 kW como una bomba de 40 kW (error de la regla inducida) falsea la potencia del proceso y enmascara un equipo crítico para mantenimiento, mientras que confundir una oscilación de 26 kW del compresor con 40 kW solo afecta una carga secundaria.
+
 ### E1. Un árbol que explica
 - **1. Variables utilizadas:** El árbol CART evalúa primero la magnitud del salto de potencia activa (`|ΔP|`) para discriminar la potencia de la carga involucrada, y luego el signo de `ΔP` para clasificar si es un encendido (`ΔP > 0`) o un apagado (`ΔP < 0`).
 - **2. Profundidad 3 vs. defecto:** Una profundidad reducida (3) generaliza mejor y produce un árbol legible con menos nodos hoja, evitando sobreajuste sobre ruidos de conmutación. La profundidad por defecto puede generar ramas espurias que intentan clasificar fluctuaciones aleatorias de ±3 kW.

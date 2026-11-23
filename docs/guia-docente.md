@@ -133,6 +133,22 @@ Cada grupo es una **carga candidata**: potencia típica, encendidos, apagados, c
 | Agrupar | **Sí: aprendizaje no supervisado.** Nadie le dice qué cargas existen. El **radio** también se estima de los datos. |
 | Resumir | No: estadística descriptiva + una regla física. |
 
+### Aprendizaje Inductivo vs. Deductivo en el Aula
+
+Para introducir el bloque de aprendizaje automático supervisado, el módulo contrasta explícitamente dos formas de clasificación:
+
+1. **Enfoque Deductivo (Reglas de Experto):**
+   - Un especialista formula las reglas a partir de especificaciones de catálogo, potencias de placa y física operativa de la planta (de lo general a lo particular).
+   - Ejemplo en el repo: ↗ [docs/material-ensenanza/reglas_deductivas_ejemplo.md](file:///home/agustin/proyectos_software/datamaq/datamaq-ml/docs/material-ensenanza/reglas_deductivas_ejemplo.md). La regla asigna `|ΔP| >= 60 kW` al motor de 90 kW y `25 <= |ΔP| < 60 kW` a la bomba de 40 kW.
+2. **Enfoque Inductivo (Aprendizaje desde Ejemplos):**
+   - El algoritmo observa casos etiquetados `(ΔP, carga_real)` y calcula particiones que maximizan la pureza o separan las clases a mitad de camino (de lo particular a lo general).
+   - Ejemplo en el repo: ↗ [docs/ejemplos/ejemplo_issue_12.py](file:///home/agustin/proyectos_software/datamaq/datamaq-ml/docs/ejemplos/ejemplo_issue_12.py) y el árbol de decisión CART en `src/infrastructure/sklearn/arbol_clasificador.py`.
+
+**Lección didáctica central:** Ambas reglas pueden exhibir exactamente la misma exactitud global (ej. 5 de 6 aciertos, 83.3 %), pero fallan en casos con impactos industriales opuestos:
+- La regla deductiva del experto falla en `ΔP = 26 kW` (clasifica 40 kW cuando era 15 kW por sobrepresión transitoria).
+- La regla inductiva falla en `ΔP = 62 kW` (clasifica 40 kW cuando era 90 kW arrancando bajo carga).
+- Para el mantenimiento preventivo, degradar un motor de 90 kW a 40 kW es crítico; por ello, la exactitud sola nunca es suficiente para certificar un modelo.
+
 Consecuencias para charlar:
 - **No hay "respuesta correcta"**: sin etiquetas no se puede medir un error. Se valida con sentido físico.
 - **`./run.sh train` no guarda un modelo**: DBSCAN agrupa desde cero cada vez. `data/output/` guarda el resultado del agrupamiento.
