@@ -56,8 +56,12 @@ mejora fundamentada).
 
 ---
 
-## Cómo usar la rúbrica con el caso de estudio
+## Cómo usar la rúbrica con el caso de estudio y el programa
 
 El caso de estudio entrega solo resultados agregados. Para el referencial 1, pedir que expliquen qué les dice el
 porcentaje atribuido y qué no les dice. Para el referencial 5, pedir la comparación de k-medias y DBSCAN con el tablero
 sintético: el caso real no tiene verdad de terreno, así que la comparación solo se hace sobre sintéticos.
+
+- Planificación curricular y cronograma semanal: ↗ [programa.md](file:///home/agustin/proyectos_software/datamaq/datamaq-ml/docs/material-ensenanza/programa.md)
+- Banco de respuestas docentes: ↗ [respuestas-ejercicios.md](file:///home/agustin/proyectos_software/datamaq/datamaq-ml/docs/material-ensenanza/respuestas-ejercicios.md)
+- Ejercicios de los estudiantes: ↗ [ejercicios.md](file:///home/agustin/proyectos_software/datamaq/datamaq-ml/docs/material-ensenanza/ejercicios.md)
