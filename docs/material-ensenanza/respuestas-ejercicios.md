@@ -193,3 +193,19 @@ Dados los ejemplos:
   - Para 20 cargas en 24 horas: 24^20 = 4.01 * 10^27 combinaciones. A 100 millones de evaluaciones por segundo, requeriría más de 1.2 billones de años. La búsqueda heurística evolutiva es indispensable.
 - **3. Múltiples soluciones óptimas globales:**
   Existen varias configuraciones con el mismo pico óptimo de 110 kW. Por ejemplo, la fuerza bruta encuentra (0, 1, 1, 1) y el genético encuentra (0, 3, 2, 3) (Hora 0: 20+90=110; Hora 1: 30; Hora 2: 50+25=75; Hora 3: 40+40+15=95 kW; max = 110 kW). Ambas minimizan el costo tarifario de pico por igual.
+
+### E11. Secuencias de análisis, contratos tipados e integración en equipo
+- **1. Salida analítica paso a paso:**
+  - Serie: `[0, 0, 50, 50, 0, 0, 30, 0]` kW.
+  - **Etapa 1 (Diferencias):** `[0, 50, 0, -50, 0, 30, -30]` kW.
+  - **Etapa 2 (Detección, umbral 20 kW):** 4 eventos:
+    - Minuto 2: $+50\text{ kW}$ (arranque).
+    - Minuto 4: $-50\text{ kW}$ (parada).
+    - Minuto 6: $+30\text{ kW}$ (arranque).
+    - Minuto 7: $-30\text{ kW}$ (parada).
+  - **Etapa 3 (Agrupamiento por magnitud):** Grupo 50 kW (2 eventos), Grupo 30 kW (2 eventos).
+  - **Etapa 4 (Resumen):** `{50.0: 2, 30.0: 2}`, total 4 eventos.
+- **2. Importancia del índice temporal en el contrato:**
+  Si la detección devolviera únicamente los valores `[50, -50, 30, -30]`, el agrupamiento funcionaría, pero las etapas posteriores de atribución operativa y cálculo de horómetros no podrían calcular la duración del ciclo de marcha ($t_{\text{fin}} - t_{\text{inicio}}$) ni asociar el consumo con turnos específicos.
+- **3. Falla determinista por violación de contrato:**
+  Al pasar diccionarios sin tipo, la etapa de agrupamiento valida `isinstance(ev, EventoDetectadoDTO)` y lanza de inmediato `ContratoVioladoError`. Esto evita que un cambio no consensuado de un integrante se propague silenciosamente y rompa el pipeline en fases posteriores con errores crípticos.
