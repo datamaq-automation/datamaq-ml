@@ -112,6 +112,12 @@ def veredicto_entrenamiento(r: IdentificarCargasResponse) -> tuple[str, str]:
 
 def siguiente_paso_entrenamiento(r: IdentificarCargasResponse, medidor: str) -> str:
     """El comando que conviene correr después, según el veredicto. Solo comandos que existen."""
+    if r.umbral.kw is not None and r.saltos_bajo_umbral.cantidad > 0:
+        umbral_bajo = max(1.0, round(r.umbral.kw / 2, 1))
+        return (
+            f"./run.sh train {medidor} --umbral {numero(umbral_bajo)}   "
+            f"(probá con --umbral más bajo para ver cargas chicas)"
+        )
     nivel, _ = veredicto_entrenamiento(r)
     if nivel == "ok":
         return "./run.sh supervise   (aprender con la verdad simulada)"
@@ -129,8 +135,15 @@ def lineas_resumen_entrenamiento(r: IdentificarCargasResponse, medidor: str) -> 
     if r.cargas:
         filas = _cargas_como_filas(r)
         lineas += tabla(["Carga", "Potencia", "Encendidos", "Apagados", "Ciclos"], filas)
+    lineas.append(
+        f"Umbral · radio · mínimo: {umbral} · {_radio(r)} · {r.agrupamiento.min_eventos} eventos"
+    )
+    if r.umbral.kw is not None and r.saltos_bajo_umbral.cantidad > 0:
+        lineas.append(
+            f"{numero(r.saltos_bajo_umbral.cantidad, 0)} saltos quedaron bajo el umbral de "
+            f"{numero(r.umbral.kw)} kW y no se analizaron ({numero(r.saltos_bajo_umbral.energia_kwh)} kWh estimados)."
+        )
     lineas += [
-        f"Umbral · radio · mínimo: {umbral} · {_radio(r)} · {r.agrupamiento.min_eventos} eventos",
         veredicto(nivel, texto),
         f"Siguiente paso: {siguiente_paso_entrenamiento(r, medidor)}",
     ]

@@ -92,6 +92,13 @@ class AgrupamientoResponse(BaseModel):
     min_eventos_automatico: bool
 
 
+class SaltosBajoUmbralResponse(BaseModel):
+    cantidad: int = Field(default=0, description="Cantidad de saltos que quedaron bajo el umbral")
+    energia_kwh: float = Field(
+        default=0.0, description="Energía estimada de los intervalos bajo el umbral, en kWh"
+    )
+
+
 class IdentificarCargasResponse(BaseModel):
     medidor: str
     mediciones: int
@@ -111,6 +118,10 @@ class IdentificarCargasResponse(BaseModel):
     cargas: list[CargaResponse]
     umbral: UmbralResponse
     agrupamiento: AgrupamientoResponse
+    saltos_bajo_umbral: SaltosBajoUmbralResponse = Field(
+        default_factory=lambda: SaltosBajoUmbralResponse(cantidad=0, energia_kwh=0.0),
+        description="Saltos y energía desestimados por quedar bajo el umbral",
+    )
     serie: list[PuntoResponse] = Field(
         default_factory=list, description="Potencia en el tiempo (paso 1)"
     )

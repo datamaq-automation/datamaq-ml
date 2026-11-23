@@ -153,6 +153,10 @@ def _resumen_entrenamiento(r: IdentificarCargasResponse) -> dict[str, Any]:
         "eventos": r.eventos,
         "radio_kw": r.agrupamiento.radio_kw,
         "modos": [m.model_dump() for m in r.modos],
+        "saltos_bajo_umbral": {
+            "cantidad": r.saltos_bajo_umbral.cantidad,
+            "energia_kwh": r.saltos_bajo_umbral.energia_kwh,
+        },
     }
 
 

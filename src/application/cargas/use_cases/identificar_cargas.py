@@ -9,6 +9,7 @@ from src.application.cargas.dtos.identificar_cargas import (
     IdentificarCargasResponse,
     ModoResponse,
     PuntoResponse,
+    SaltosBajoUmbralResponse,
     UmbralResponse,
 )
 from src.domain.cargas.entities import Carga, EstimacionUmbral, EventoCarga, Medicion
@@ -22,12 +23,33 @@ from src.domain.cargas.services import (
     histograma,
     nivel_de_ruido,
     resumir_cargas,
+    saltos_bajo_umbral,
     saltos_kw,
 )
 
 REGIMEN_OTSU = "otsu"
 REGIMEN_VALLE = "valle_claro"
 REGIMEN_SIN_MODOS = "sin_modos_separables"
+
+
+def _cargas_respuesta(
+    cargas: list[Carga], dias: float, balance_minimo: float
+) -> list[CargaResponse]:
+    return [
+        CargaResponse(
+            potencia_tipica_kw=c.potencia_tipica_kw,
+            encendidos=c.encendidos,
+            apagados=c.apagados,
+            ciclos=c.ciclos,
+            ciclos_por_dia=round(c.ciclos / dias, 1) if dias >= 1 else None,
+            on_off=c.es_on_off(balance_minimo),
+            dispersion_kw=c.dispersion_kw,
+            reactiva_tipica_kvar=c.reactiva_tipica_kvar,
+            cos_phi_estimado=c.cos_phi_estimado,
+            ratio_qp_mediana=c.ratio_qp_mediana,
+        )
+        for c in cargas
+    ]
 
 
 class IdentificarCargasUseCase:
@@ -93,6 +115,9 @@ class IdentificarCargasUseCase:
     ) -> IdentificarCargasResponse:
         dias = _dias(serie)
         encendidos = sum(e.es_encendido for e in eventos)
+        cant_bajo, energia_bajo = (
+            saltos_bajo_umbral(serie, umbral.kw) if umbral.kw is not None else (0, 0.0)
+        )
         return IdentificarCargasResponse(
             medidor=medidor,
             mediciones=len(serie),
@@ -104,23 +129,12 @@ class IdentificarCargasUseCase:
             potencia_media_kw=round(sum(m.potencia_kw for m in serie) / len(serie), 1)
             if serie
             else 0.0,
-            cargas=[
-                CargaResponse(
-                    potencia_tipica_kw=c.potencia_tipica_kw,
-                    encendidos=c.encendidos,
-                    apagados=c.apagados,
-                    ciclos=c.ciclos,
-                    ciclos_por_dia=round(c.ciclos / dias, 1) if dias >= 1 else None,
-                    on_off=c.es_on_off(self._balance_minimo),
-                    dispersion_kw=c.dispersion_kw,
-                    reactiva_tipica_kvar=c.reactiva_tipica_kvar,
-                    cos_phi_estimado=c.cos_phi_estimado,
-                    ratio_qp_mediana=c.ratio_qp_mediana,
-                )
-                for c in cargas
-            ],
+            cargas=_cargas_respuesta(cargas, dias, self._balance_minimo),
             umbral=umbral,
             agrupamiento=agrupamiento,
+            saltos_bajo_umbral=SaltosBajoUmbralResponse(
+                cantidad=cant_bajo, energia_kwh=round(energia_bajo, 1)
+            ),
             sin_modos_separables=umbral.regimen == REGIMEN_SIN_MODOS,
             modos=_modos_respuesta(modos),
             serie=[

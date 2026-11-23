@@ -11,6 +11,7 @@ from src.application.cargas.dtos.identificar_cargas import (
     AgrupamientoResponse,
     CargaResponse,
     IdentificarCargasResponse,
+    SaltosBajoUmbralResponse,
     UmbralResponse,
 )
 from src.infrastructure.cli import presentacion as p
@@ -24,7 +25,13 @@ def terminal_fija(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("COLUMNS", "80")
 
 
-def _respuesta(cargas: list[CargaResponse], sin_grupo: int, sin_modos: bool = False):
+def _respuesta(
+    cargas: list[CargaResponse],
+    sin_grupo: int,
+    sin_modos: bool = False,
+    saltos_bajo: int = 0,
+    energia_bajo: float = 0.0,
+):
     return IdentificarCargasResponse(
         medidor="sintetico",
         mediciones=4032,
@@ -36,6 +43,7 @@ def _respuesta(cargas: list[CargaResponse], sin_grupo: int, sin_modos: bool = Fa
         agrupamiento=AgrupamientoResponse(
             radio_kw=8.2, radio_automatico=True, min_eventos=14, min_eventos_automatico=True
         ),
+        saltos_bajo_umbral=SaltosBajoUmbralResponse(cantidad=saltos_bajo, energia_kwh=energia_bajo),
         sin_modos_separables=sin_modos,
         dias=14.0,
         histograma=[],
@@ -121,3 +129,24 @@ def test_resumen_tiene_tabla_veredicto_y_siguiente_paso_sin_ansi() -> None:
     assert "Siguiente paso:" in salida
     assert ANSI not in salida
     assert max(len(linea) for linea in lineas) <= 80
+
+
+def test_resumen_informa_saltos_bajo_umbral_y_energia_estimada() -> None:
+    r = _respuesta([_carga()], sin_grupo=0, saltos_bajo=3528, energia_bajo=46095.1)
+    salida = "\n".join(p.lineas_resumen_entrenamiento(r, "sintetico"))
+    assert "3.528 saltos quedaron bajo el umbral de 48,9 kW y no se analizaron" in salida
+    assert "46.095,1 kWh estimados" in salida
+
+
+def test_siguiente_paso_sugiere_umbral_mas_bajo_cuando_hay_saltos_sin_analizar() -> None:
+    r = _respuesta([_carga()], sin_grupo=0, saltos_bajo=3528, energia_bajo=46095.1)
+    paso = p.siguiente_paso_entrenamiento(r, "sintetico")
+    assert "probá con --umbral más bajo para ver cargas chicas" in paso
+    assert "./run.sh train sintetico --umbral 24,4" in paso
+
+
+def test_resumen_sin_saltos_bajo_umbral_no_muestra_advertencia() -> None:
+    r = _respuesta([_carga()], sin_grupo=0, saltos_bajo=0, energia_bajo=0.0)
+    salida = "\n".join(p.lineas_resumen_entrenamiento(r, "sintetico"))
+    assert "quedaron bajo el umbral" not in salida
+    assert "probá con --umbral más bajo" not in p.siguiente_paso_entrenamiento(r, "sintetico")
