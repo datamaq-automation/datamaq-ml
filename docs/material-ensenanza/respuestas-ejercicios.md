@@ -76,6 +76,15 @@ Dados los ejemplos:
 - **3. Marcado de valores aislados en DBSCAN:** Es una ventaja capital en entornos industriales: permite filtrar arranques atípicos, maniobras transitorias y ruidos de red sin forzar su asignación a una máquina existente.
 - **4. Coincidencia:** Coinciden cuando las cargas tienen clusters hiper-esféricos, densos y bien separados entre sí con varianza homogénea.
 
+### E7b. Dendrograma y cortes aglomerativos
+- **1. Enlace simple vs. completo en 7 puntos:**
+  - El enlace simple mide la distancia mínima entre clusters. Por el efecto de encadenamiento (*chaining*), 1 se une a 2 (distancia 1.0), 2 a 3.5 (distancia 1.5) y 3.5 a 5 (distancia 1.5), fusionando `{1, 2, 3.5, 5}` en una sola cadena alargada.
+  - El enlace completo mide la distancia máxima entre cualquier par de elementos. Como la distancia entre 1 y 5 es 4.0, resiste la fusión y mantiene `{1, 2}` separado de `{3.5, 5}`, produciendo clusters más compactos y esféricos.
+- **2. Comparación sobre el tablero sintético:**
+  - Los métodos Ward y complete alcanzan las siluetas más altas (~0.65 a 0.75) al aislar limpiamente los escalones típicos de 15, 40 y 90 kW. Enlace simple sufre encadenamiento espurio por el ruido de conmutación.
+- **3. Criterio de corte en el dendrograma:**
+  - El corte óptimo se sitúa en la mayor brecha vertical entre fusiones sucesivas. Una línea horizontal que cruce ese salto amplio asegura que los grupos sean estables y físicamente diferenciables sin sobresegmentar.
+
 ---
 
 ## Bloque 5 — Selección de Parámetros sin la Verdad
