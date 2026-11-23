@@ -108,6 +108,17 @@ python docs/ejemplos/ejemplo_issue_12.py
    Justifiquen con un caso concreto (un arranque aislado, una falla de medición).
 4. ¿Cuándo esperarían que k-medias y DBSCAN den el mismo resultado? ¿Cuándo no?
 
+**E7b. Dendrograma y cortes aglomerativos.** (ver práctica ↗ [practica_aglomerativo.py](file:///home/agustin/proyectos_software/datamaq/datamaq-ml/docs/material-ensenanza/practicas/practica_aglomerativo.py) y script ↗ [ejemplo_issue_17.py](file:///home/agustin/proyectos_software/datamaq/datamaq-ml/docs/ejemplos/ejemplo_issue_17.py)):
+
+```bash
+./.venv/bin/python docs/material-ensenanza/practicas/practica_aglomerativo.py --comparar-todos
+./.venv/bin/python docs/material-ensenanza/practicas/practica_aglomerativo.py --k 3 --metodo complete
+```
+
+1. Corré el script `ejemplo_issue_17.py` y observá la tabla de siete puntos: 1; 2; 3,5; 5; 9; 10; 12,5. ¿Por qué el enlace simple agrupa 1, 2, 3,5 y 5 juntos, mientras que el enlace completo separa {1, 2} de {3,5, 5}?
+2. En la práctica sobre `sintetico.csv`, compará los cuatro métodos cortando en k=3. ¿Cuál método obtiene el mayor coeficiente de silueta y por qué?
+3. En un dendrograma, ¿dónde conviene realizar el corte por distancia? Justificá utilizando el concepto de salto de altura (brecha máxima entre fusiones sucesivas).
+
 ## Bloque 5 — Selección de modelos y validación sin respuestas correctas
 
 **E8. Elegir parámetros sin la verdad.** Los parámetros de DBSCAN se estiman con reglas (ver `docs/cuaderno-alumno.md`,
