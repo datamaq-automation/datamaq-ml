@@ -87,6 +87,14 @@ Dados los ejemplos:
 - **2. Comparación de radio:** El radio automático se sitúa en el codo de la curva de silueta sin requerir inspección visual.
 - **3. Criterio sin verdad:** Optimizar maximizando la silueta promedio sujeta a una penalización por fracción de ruido (`pct_ruido < 15 %`).
 
+### E8b. Curva de sobreajuste y ajuste de hiperparámetros
+- **1. Evolución de la exactitud:**
+  - Profundidad 2: Entrenamiento 71.7 %, Prueba 78.0 % (4 hojas).
+  - Profundidad 4: Entrenamiento 80.0 %, Prueba 65.0 % (11 hojas).
+  - Sin límite: Entrenamiento 98.3 %, Prueba 57.5 % (25 hojas).
+- **2. Causa del colapso en prueba:** El árbol sin límite creó 25 hojas para aislar y clasificar correctamente las 19 etiquetas ruidosas o corruptas del entrenamiento. Al memorizar el ruido aleatorio en lugar de los patrones físicos de potencia, comete errores masivos al enfrentarse a los 200 casos de prueba limpios.
+- **3. Ventaja de la validación cruzada:** La validación cruzada rota los datos de validación entre k particiones distintas, promediando el rendimiento y eliminando el riesgo de optimizar hiperparámetros para una partición de prueba afortunada o sesgada.
+
 ---
 
 ## Bloque 6 — Verificación del Software de ML

@@ -28,7 +28,7 @@ Cada fila conecta un tema del temario del módulo «Procesamiento de Aprendizaje
 | Programación lógica inductiva y algoritmo FOIL | ↗ [docs/ejemplos/ejemplo_issue_14.py](file:///home/agustin/proyectos_software/datamaq/datamaq-ml/docs/ejemplos/ejemplo_issue_14.py) | Inducción de relaciones de carga |
 | Árboles de regresión y predicción temporal de demanda | ↗ [docs/ejemplos/ejemplo_issue_15.py](file:///home/agustin/proyectos_software/datamaq/datamaq-ml/docs/ejemplos/ejemplo_issue_15.py) | Pronóstico a 15 min |
 | Medidas de rendimiento (matriz de confusión, exactitud, precisión, recall) | ↗ [src/domain/cargas/evaluacion.py](file:///home/agustin/proyectos_software/datamaq/datamaq-ml/src/domain/cargas/evaluacion.py), `MatrizConfusion` en ↗ [src/domain/cargas/entities.py](file:///home/agustin/proyectos_software/datamaq/datamaq-ml/src/domain/cargas/entities.py) | E5 |
-| Ajuste de modelos: sobreajuste y validación cruzada | ↗ [docs/ejemplos/ejemplo_issue_16.py](file:///home/agustin/proyectos_software/datamaq/datamaq-ml/docs/ejemplos/ejemplo_issue_16.py) | Ajuste de hiperparámetros |
+| Ajuste de modelos: sobreajuste y validación cruzada | ↗ [src/infrastructure/sklearn/evaluacion_clasificadores.py](file:///home/agustin/proyectos_software/datamaq/datamaq-ml/src/infrastructure/sklearn/evaluacion_clasificadores.py), ↗ [docs/material-ensenanza/guia_ajuste_modelos.md](file:///home/agustin/proyectos_software/datamaq/datamaq-ml/docs/material-ensenanza/guia_ajuste_modelos.md), ↗ [docs/ejemplos/ejemplo_issue_16.py](file:///home/agustin/proyectos_software/datamaq/datamaq-ml/docs/ejemplos/ejemplo_issue_16.py) | E8b |
 
 ---
 
