@@ -184,3 +184,16 @@ python docs/ejemplos/ejemplo_issue_20.py
 1. Corran el script y confirmen la cobertura de 79,2 %. ¿En qué intervalos se concentra el residuo crítico mayor a 0,5 kWh?
 2. Si un algoritmo atribuye 10 kWh de más en el turno mañana y 10 kWh de menos en el turno tarde, ¿qué le pasa a la cobertura diaria total? ¿Por qué la cobertura global sola puede ser engañosa?
 3. Diseñen un vector sintético de 8 intervalos donde la cobertura sea del 95 % pero que deba ser rechazado por contener energía inventada en uno de los intervalos (residuo negativo). Verifiquen su caso con `evaluar_consistencia_dia`.
+
+**E8c. Despacho horario de cargas con Q-Learning tabular.**
+Un equipo industrial opera bajo un régimen tarifario de dos franjas cíclicas: valle (tarifa baja) y pico (tarifa alta), con $\gamma = 0.9$:
+- En valle, arrancar genera un beneficio neto de $+2$.
+- En pico, arrancar genera un costo {\text{pico}}$.
+- Esperar en cualquier estado genera bash$.
+
+1. Calculen analíticamente el valor esperado de Bellman (\text{valle})$ para:
+   - {\text{pico}} = -5$ (arrancar en valle y esperar en pico). Comprueben que da $\approx 10.53$.
+   - {\text{pico}} = +1$ (arrancar en ambos períodos). Comprueben que da $\approx 15.26$.
+2. Ejecuten r_pico = -5: Q(valle, arrancar) = 10.53 (analítico 10,53); política {'valle': 'arrancar', 'pico': 'esperar'}
+r_pico = +1: Q(valle, arrancar) = 15.26 (analítico 15,26); política {'valle': 'arrancar', 'pico': 'arrancar'}. ¿Por qué modificar la recompensa del estado pico cambia la decisión óptima que toma el agente en el estado valle?
+3. ¿Qué sucedería con la política si el factor de descuento fuera $\gamma = 00

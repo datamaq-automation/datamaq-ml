@@ -6,40 +6,26 @@ Analítico (γ = 0,9): V(valle) = 2 / (1 − γ²) = 10,526 si r_pico = −5; 15
 Ejecutar desde la raíz del repo: python docs/ejemplos/ejemplo_issue_18.py
 """
 
-import random
+import sys
+from pathlib import Path
 
-GAMMA = 0.9
-ESTADOS = ("valle", "pico")
-ACCIONES = ("arrancar", "esperar")
+RAIZ = Path(__file__).resolve().parent.parent.parent
+if str(RAIZ) not in sys.path:
+    sys.path.insert(0, str(RAIZ))
 
-
-def recompensa(estado, accion, r_pico):
-    if accion == "esperar":
-        return 0.0
-    return 2.0 if estado == "valle" else r_pico
-
-
-def siguiente(estado):
-    return "pico" if estado == "valle" else "valle"
+from src.domain.cargas.refuerzo_qlearning import (  # noqa: E402
+    AgenteQLearningTabular,
+    EntornoTarifaHoraria,
+)
 
 
-def entrenar(r_pico, pasos=20000, alfa=0.1, epsilon=0.2, semilla=0):
-    rng = random.Random(semilla)
-    q = {(e, a): 0.0 for e in ESTADOS for a in ACCIONES}
-    estado = "valle"
-    for _ in range(pasos):
-        if rng.random() < epsilon:
-            accion = rng.choice(ACCIONES)
-        else:
-            accion = max(ACCIONES, key=lambda x: q[(estado, x)])
-        r = recompensa(estado, accion, r_pico)
-        s2 = siguiente(estado)
-        q[(estado, accion)] += alfa * (
-            r + GAMMA * max(q[(s2, b)] for b in ACCIONES) - q[(estado, accion)]
-        )
-        estado = s2
-    politica = {e: max(ACCIONES, key=lambda x: q[(e, x)]) for e in ESTADOS}
-    return q, politica
+def entrenar(
+    r_pico: float, pasos: int = 20000, alfa: float = 0.1, epsilon: float = 0.2, semilla: int = 0
+):
+    env = EntornoTarifaHoraria(r_pico=r_pico, recompensa_valle=2.0)
+    agente = AgenteQLearningTabular(alfa=alfa, gamma=0.9, epsilon=epsilon, semilla=semilla)
+    agente.entrenar(env, pasos=pasos)
+    return agente.obtener_tabla_q(), agente.obtener_politica()
 
 
 if __name__ == "__main__":
@@ -59,4 +45,3 @@ if __name__ == "__main__":
         "valle": "arrancar",
         "pico": "arrancar",
     }
-    print("cambiar la recompensa en pico cambia la política en pico")

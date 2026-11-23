@@ -166,3 +166,18 @@ Dados los ejemplos:
   - Atribuido: `[10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 15.0, 20.0]` (total 95 kWh).
   - Cobertura: 95.0 %.
   - Rechazado por: Energía inventada en el intervalo 6 (`atribuido=15.0 > medido=10.0`), violando la invarianza física.
+
+
+### E8c. Despacho horario de cargas con Q-Learning tabular
+- **1. Deducción analítica de Bellman en estado valle:**
+  - El sistema es un ciclo de período 2 ( = \text{valle} \rightarrow s_1 = \text{pico} \rightarrow s_2 = \text{valle}$).
+  - La ecuación de valor recursiva es: (\text{valle}) = r_{\text{valle}} + \gamma \cdot r_{\text{pico}} + \gamma^2 \cdot V(\text{valle})$.
+  - Despejando: (\text{valle}) = \frac{r_{\text{valle}} + \gamma \cdot r_{\text{pico}}}{1 - \gamma^2}$.
+  - Con {\text{pico}} = -5$ (política óptima: arrancar en valle, esperar en pico con recompensa 0):
+    (\text{valle}) = \frac{2 + 0.9 \cdot 0}{1 - 0.81} = \frac{2}{0.19} \approx \mathbf{10.5263}$.
+  - Con {\text{pico}} = +1$ (política óptima: arrancar en ambos estados):
+    (\text{valle}) = \frac{2 + 0.9 \cdot 1}{1 - 0.81} = \frac{2.9}{0.19} \approx \mathbf{15.2631}$.
+- **2. Interdependencia temporal de decisiones:**
+  En aprendizaje por refuerzo con descuento $\gamma > 0$, el agente no toma decisiones aisladas; el valor (s, a)$ incorpora la suma descontada de todas las consecuencias futuras. Cuando {\text{pico}} = +1$, el valor global esperado sube a 15.26 y la política óptima en pico pasa de esperar a arrancar.
+- **3. Caso límite miope ($\gamma = 0$):**
+  Si $\gamma = 0$, el agente solo maximiza la recompensa inmediata del paso actual ((s, a) = r(s, a)$). Con {\text{pico}} = 1 > 0$, arrancaría sin considerar la estructura secuencial del proceso.
