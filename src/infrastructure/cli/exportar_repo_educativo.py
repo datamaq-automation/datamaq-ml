@@ -39,6 +39,13 @@ ARCHIVOS_EXCLUIDOS: set[str] = {
 # Rutas relativas que deben excluirse por ser adaptadores privados a servidores o datos reales
 RUTAS_EXCLUIDAS_PREFIJO: tuple[str, ...] = (
     "src/infrastructure/ssh",
+    "src/infrastructure/cli/exportar_dias_ssh.py",
+    "src/infrastructure/cli/exportar_repo_educativo.py",
+    "scripts/exportar_repo_educativo.py",
+    "tests/integration/test_ssh_medicion_repository.py",
+    "tests/unit/test_exportar_dias_ssh.py",
+    "tests/unit/test_exportar_repo_educativo.py",
+    "tests/unit/test_mediciones_factory.py",
     "data/verdad",
     "data/prod-cache",
 )

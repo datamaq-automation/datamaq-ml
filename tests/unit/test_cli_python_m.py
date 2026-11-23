@@ -63,6 +63,8 @@ def test_cada_cli_tiene_guarda_que_llama_main(modulo: str) -> None:
 
 def test_exportar_dias_ssh_con_python_m_propaga_el_codigo_de_argumentos(tmp_path: Path) -> None:
     """Un device-id que no es uuid sale con código 2 antes de cualquier conexión por SSH."""
+    if not (RAIZ / "src" / "infrastructure" / "cli" / "exportar_dias_ssh.py").exists():
+        pytest.skip("exportar_dias_ssh no está presente en este entorno")
     resultado = _correr_modulo(
         "exportar_dias_ssh",
         "--device-id",

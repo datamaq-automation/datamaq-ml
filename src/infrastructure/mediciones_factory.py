@@ -10,7 +10,6 @@ from src.domain.cargas.repositories import MedicionRepository
 from src.infrastructure.csv.medicion_repository import CsvMedicionRepository
 from src.infrastructure.settings.config import Settings
 from src.infrastructure.settings.logger import logger
-from src.infrastructure.ssh.medicion_repository import SshMedicionRepository
 
 
 @lru_cache(maxsize=1)
@@ -26,6 +25,8 @@ def crear_repositorio_mediciones(source: str, csv_dir: str, cache_dir: str) -> M
         CsvMedicionRepository o SshMedicionRepository (instancia única por proceso)
     """
     if source == "ssh":
+        from src.infrastructure.ssh.medicion_repository import SshMedicionRepository
+
         logger.info("🏭 Factoría: creando repositorio SSH (cache: %s)", cache_dir)
         return SshMedicionRepository(cache_dir=Path(cache_dir))
     else:
