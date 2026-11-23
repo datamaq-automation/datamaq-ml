@@ -27,6 +27,21 @@ El archivo `.env` es local y **no se versiona**. No pongas secretos en el repo: 
 > **Los datos reales no se versionan.** `data/input/` y `data/verdad/` están ignorados por Git,
 > salvo el dataset sintético (`sintetico.csv`), que se genera con `./run.sh simulate`.
 
+Para estudiantes y docentes de **ISFT 199**, los datasets anonimizados de práctica (`t1.csv` y `t2.csv`) se sincronizan directamente desde la distribución estática pública:
+
+```bash
+./run.sh fetch-data       # Descarga t1.csv y t2.csv automáticamente a data/input/
+```
+
+En modo local (`MEDICIONES_SOURCE=local`, valor por defecto), cada medidor es un archivo `data/input/<medidor>.csv`
+con columnas `instante,potencia_kw`.
+
+- `sintetico`: generado localmente con `./run.sh simulate` (verdad de terreno en `data/verdad/sintetico.csv`).
+- `t1`: Trafo 1 (Sector preparación de pasta y fuerza motriz, 7.515 lecturas).
+- `t2`: Trafo 2 (Máquina papelera continua, 8.376 lecturas).
+
+> **Nombre exacto del medidor:** coincide con el nombre del archivo sin extensión (ej. `t1`, `t2`, `sintetico`).
+
 ### Formato del CSV
 
 Un archivo por medidor y día, con instantes en **UTC**:

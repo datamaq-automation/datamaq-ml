@@ -92,6 +92,7 @@ Detalle de un comando: ./run.sh ayuda <comando>
 
 DATOS
   simulate       genera un tablero sintético con cargas conocidas
+  fetch-data     descarga datasets para estudiantes (t1, t2) desde el servidor
   disaggregate   desagrega un día con firmas confirmadas (batch diario)
 
 APRENDIZAJE
@@ -122,6 +123,14 @@ simulate · genera un tablero sintético con cargas conocidas
   Parte de:  nada (crea datos de prueba)
   Escribe:   data/input/sintetico.csv y su verdad en data/verdad/
   Ejemplo:   ./run.sh simulate --dias 14
+TXT
+            ;;
+        fetch-data)
+            cat <<'TXT'
+fetch-data · descarga datasets reales para estudiantes desde el servidor
+  Parte de:  conexión HTTPS a api.datamaq.com.ar/static/isft199/
+  Escribe:   data/input/t1.csv y data/input/t2.csv
+  Ejemplo:   ./run.sh fetch-data
 TXT
             ;;
         train)
@@ -288,6 +297,16 @@ case "$COMMAND" in
         ensure_venv
         echo "🧪 Generando un tablero simulado con cargas conocidas..."
         exec "$PYTHON_BIN" -m src.infrastructure.cli.simular_tablero "${@:2}"
+        ;;
+    fetch-data)
+        ensure_venv
+        echo "📥 Descargando datasets para estudiantes..."
+        exec "$PYTHON_BIN" -m src.infrastructure.cli.descargar_datos_estudiantes "${@:2}"
+        ;;
+    export-edu)
+        ensure_venv
+        echo "📦 Exportando repositorio educativo sanitizado..."
+        exec "$PYTHON_BIN" -m src.infrastructure.cli.exportar_repo_educativo "${@:2}"
         ;;
     evaluate)
         ensure_venv
