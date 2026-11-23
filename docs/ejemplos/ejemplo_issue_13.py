@@ -6,16 +6,23 @@ y el más cercano por encima de los positivos.
 Ejecutar desde la raíz del repo: python docs/ejemplos/ejemplo_issue_13.py
 """
 
+import sys
+from pathlib import Path
+
+RAIZ = Path(__file__).resolve().parent.parent.parent
+if str(RAIZ) not in sys.path:
+    sys.path.insert(0, str(RAIZ))
+
+from src.domain.cargas.aq_learner import AQLearner, inducir_complejo_1d  # noqa: E402
+
 EJEMPLOS = [(88, 90), (92, 90), (40, 40), (42, 40), (15, 15), (16, 15)]  # (ΔP en kW, clase en kW)
 INF = float("inf")
 
 
 def complejo(clase: int) -> tuple[float, float]:
-    pos = [dp for dp, c in EJEMPLOS if c == clase]
-    neg = [dp for dp, c in EJEMPLOS if c != clase]
-    lo = max((n for n in neg if n < min(pos)), default=-INF)
-    hi = min((n for n in neg if n > max(pos)), default=INF)
-    return lo, hi
+    """Calcula el complejo más general 1D usando la función de dominio inducir_complejo_1d."""
+    comp = inducir_complejo_1d([(float(dp), c) for dp, c in EJEMPLOS], clase_objetivo=clase)
+    return comp.minimo, comp.maximo
 
 
 def cubre(clase: int) -> tuple[list[int], list[int]]:
@@ -39,3 +46,10 @@ if __name__ == "__main__":
         )
     lo, hi = complejo(40)
     print(f"un arranque de 60 kW cae en el complejo de 40 kW ({lo} < 60 < {hi}): {lo < 60 < hi}")
+
+    # Verificación con AQLearner
+    modelo = AQLearner()
+    modelo.entrenar([({"dp": float(dp)}, c) for dp, c in EJEMPLOS])
+    pred_60 = modelo.predecir({"dp": 60.0})
+    assert pred_60 == 40
+    print(f"Predicción AQLearner para 60 kW: {pred_60} kW (correcto según cobertura)")
