@@ -46,6 +46,18 @@ Dados los ejemplos:
   `S' = { (30 <= ΔP <= 42) ∧ (33 <= ΔQ <= 44) }`.
   El límite G se especializa eliminando hipótesis que choquen con la expansión de S.
 
+### E4b. Algoritmo AQ frente a Espacio de Versiones y Árboles CART
+- **1. Cálculo de complejos 1D a mano:**
+  - **Clase 90 kW:** Positivos {88, 92}. Negativos más cercanos: 42 por debajo, ninguno por encima. Complejo: `ΔP > 42` (intervalo `(42, ∞)`).
+  - **Clase 40 kW:** Positivos {40, 42}. Negativos más cercanos: 16 por debajo, 88 por encima. Complejo: `16 < ΔP < 88` (intervalo `(16, 88)`).
+  - **Clase 15 kW:** Positivos {15, 16}. Negativos más cercanos: ninguno por debajo, 40 por encima. Complejo: `ΔP < 40` (intervalo `(-∞, 40)`).
+- **2. Clasificación de arranque de 60 kW:**
+  60 kW cae estrictamente dentro del intervalo `(16, 88)`. En ausencia de ejemplos negativos entre 42 y 88 kW, la estrella de máxima generalidad expande el complejo hasta topar con el contraejemplo negativo más próximo (88 kW).
+- **3. Comparativa de reglas, complejidad y F1:**
+  - **AQ:** Genera 1 regla con 1 complejo por clase (total 3 reglas disyuntivas directas). F1 = 1.0 sobre los datos de entrenamiento.
+  - **Espacio de Versiones:** Mantiene el par de límites S y G. Solo admite conceptos conjuntivos convexos; si una clase se dispersa entre negativos, colapsa a conjunto vacío a menos que se fragmente manualmente.
+  - **Árbol CART:** Genera una partición ortogonal jerárquica con 2 umbrales de decisión (ej. cortes en ~28 kW y ~65 kW). F1 = 1.0, pero la estructura anidada `SI ... SINO SI ...` es menos directa para el operador que los rangos nominales de AQ.
+
 ---
 
 ## Bloque 3 — Medidas de Rendimiento

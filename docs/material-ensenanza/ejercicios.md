@@ -65,6 +65,12 @@ python docs/ejemplos/ejemplo_issue_12.py
 2. ¿Cuál es la más general? (el límite G)
 3. Agreguen el ejemplo 5 (ΔP = 30, ΔQ = 33, sí). ¿Cómo cambian S y G? Verifiquen con `POST /api/v1/version-space/step`.
 
+**E4b. Algoritmo AQ frente a Espacio de Versiones y Árboles CART.**
+Con los 6 arranques sintéticos de prueba: (88, 90), (92, 90), (40, 40), (42, 40), (15, 15) y (16, 15) (donde cada tupla es `(ΔP, clase)` en kW):
+1. Calculen a mano el complejo más general (1D) para cada una de las 3 clases.
+2. ¿Por qué un nuevo arranque de 60 kW es clasificado por AQ como clase 40 kW si no había ningún dato de 60 kW en el entrenamiento?
+3. Comparen conceptualmente las reglas de AQ con las obtenidas por un árbol CART (`./run.sh supervise`) y las del espacio de versiones: comparen número de reglas, complejidad e interpretabilidad. Verifiquen con `python docs/ejemplos/ejemplo_issue_13.py`.
+
 ## Bloque 3 — Medidas de rendimiento
 
 **E5. Medir sin inventar números.** Con la verdad del tablero:
