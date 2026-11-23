@@ -5,44 +5,57 @@ Cada etapa recibe y devuelve un tipo explícito; si el tipo no coincide, la cade
 Ejecutar desde la raíz del repo: python docs/ejemplos/ejemplo_issue_21.py
 """
 
-from dataclasses import dataclass
+import sys
+from pathlib import Path
+
+RAIZ = Path(__file__).resolve().parent.parent.parent
+if str(RAIZ) not in sys.path:
+    sys.path.insert(0, str(RAIZ))
+
+from src.domain.cargas.secuencias_analisis import (  # noqa: E402
+    CadenaAnalisisNILM,
+    ContratoVioladoError,
+    EventoDetectadoDTO,
+)
 
 SERIE = [0, 0, 50, 50, 0, 0, 30, 0]  # kW por minuto, sintética
 UMBRAL_KW = 20
 
 
-@dataclass(frozen=True)
-class Evento:
-    indice: int
-    delta_kw: float
-
-
 def diferencias(serie: list[float]) -> list[float]:
-    return [b - a for a, b in zip(serie, serie[1:], strict=False)]
+    cadena = CadenaAnalisisNILM(umbral_kw=UMBRAL_KW)
+    return cadena.etapa1.ejecutar(serie)
 
 
-def detectar(deltas: list[float], umbral: float) -> list[Evento]:
-    return [Evento(i + 1, d) for i, d in enumerate(deltas) if abs(d) >= umbral]
+def detectar(deltas: list[float], umbral: float) -> list[EventoDetectadoDTO]:
+    cadena = CadenaAnalisisNILM(umbral_kw=umbral)
+    return cadena.etapa2.ejecutar(deltas)
 
 
-def agrupar(eventos: list[Evento]) -> dict[float, list[Evento]]:
-    grupos: dict[float, list[Evento]] = {}
-    for e in eventos:
-        grupos.setdefault(abs(e.delta_kw), []).append(e)
-    return grupos
+def agrupar(eventos: list[EventoDetectadoDTO]) -> dict[float, list[EventoDetectadoDTO]]:
+    cadena = CadenaAnalisisNILM(umbral_kw=UMBRAL_KW)
+    return cadena.etapa3.ejecutar(eventos)
 
 
-def resumir(grupos: dict[float, list[Evento]]) -> dict[float, int]:
-    return {magnitud: len(evs) for magnitud, evs in sorted(grupos.items(), reverse=True)}
+def resumir(grupos: dict[float, list[EventoDetectadoDTO]]) -> dict[float, int]:
+    cadena = CadenaAnalisisNILM(umbral_kw=UMBRAL_KW)
+    res = cadena.etapa4.ejecutar(grupos)
+    return res.conteo_por_magnitud
 
 
 if __name__ == "__main__":
-    deltas = diferencias(SERIE)
-    eventos = detectar(deltas, UMBRAL_KW)
-    grupos = agrupar(eventos)
-    resumen = resumir(grupos)
+    cadena = CadenaAnalisisNILM(umbral_kw=UMBRAL_KW)
+    resumen = cadena.procesar(SERIE)
+    eventos = cadena.obtener_eventos_detectados()
+
     print("eventos:", [(e.indice, e.delta_kw) for e in eventos])
-    print("grupos por magnitud (kW → cantidad):", resumen)
+    print("grupos por magnitud (kW → cantidad):", resumen.conteo_por_magnitud)
     assert [(e.indice, e.delta_kw) for e in eventos] == [(2, 50), (4, -50), (6, 30), (7, -30)]
-    assert resumen == {50: 2, 30: 2}
+    assert resumen.conteo_por_magnitud == {50: 2, 30: 2}
     print("dos clases de carga: una de 50 kW (2 arranques y 2 paradas) y otra de 30 kW")
+
+    # Demostración de robustez del contrato: rechazo inmediato si se pasa tipo inválido
+    try:
+        cadena.etapa3.ejecutar([{"indice": 2, "delta": 50}])  # type: ignore[list-item]
+    except ContratoVioladoError:
+        print("✓ Contrato verificado: agrupar() rechazó exitosamente diccionarios sin tipo.")

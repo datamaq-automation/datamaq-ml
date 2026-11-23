@@ -202,3 +202,10 @@ Dadas 4 cargas: horno (90 kW), compresor (40 kW), luz (25 kW) y bomba (15 kW), y
 1. Calculen a mano la demanda en cada una de las 4 horas y el pico máximo resultante para el individuo (0, 1, 1, 1). Comprueben que da exactamente 110 kW.
 2. ¿Por qué la fuerza bruta (4^4 = 256 combinaciones) es viable en este caso, pero se vuelve intratable para 20 cargas en 24 horas (24^20)?
 3. Ejecuten `python docs/ejemplos/ejemplo_issue_19.py`. ¿Por qué el algoritmo genético puede devolver una asignación horaria diferente a la de la fuerza bruta (ej. (0, 3, 2, 3)) y sin embargo ambas ser óptimas?
+
+**E11. Secuencias de análisis, contratos tipados e integración en equipo.**
+En un pipeline de desagregación energética, cuatro etapas se encadenan de forma secuencial: `Diferencias` -> `Detección` -> `Agrupamiento` -> `Resumen`.
+Dada la serie sintética de 8 minutos en kW: `[0, 0, 50, 50, 0, 0, 30, 0]` y un umbral de detección de 20 kW:
+1. Calculen a mano la salida de cada etapa, identificando los 4 eventos resultantes (minuto y delta kW) y el resumen final de cargas.
+2. ¿Por qué es crítico que el contrato de `Detección` devuelva una estructura con índice temporal (`EventoDetectadoDTO`) en lugar de únicamente la lista numérica de escalones?
+3. Ejecuten `python docs/ejemplos/ejemplo_issue_21.py`. Modifiquen la entrada de la etapa de agrupamiento para pasarle un diccionario sin tipo (`{"indice": 2, "delta": 50}`). ¿Qué excepción se dispara y cómo protege esto el trabajo colaborativo en equipo?
