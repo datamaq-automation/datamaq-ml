@@ -5,7 +5,7 @@ from bisect import bisect_left
 from collections import defaultdict
 from datetime import datetime
 from itertools import pairwise
-from statistics import pstdev
+from statistics import median, pstdev
 
 from src.domain.cargas.entities import (
     BarraHistograma,
@@ -86,6 +86,24 @@ def saltos_kw(mediciones: list[Medicion]) -> list[float]:
     """|ΔP| entre mediciones consecutivas (ordenadas por instante)."""
     ordenadas = sorted(mediciones, key=lambda m: m.instante)
     return [abs(b.potencia_kw - a.potencia_kw) for a, b in pairwise(ordenadas)]
+
+
+def saltos_bajo_umbral(mediciones: list[Medicion], umbral_kw: float) -> tuple[int, float]:
+    """Cuenta cuántos saltos quedaron por debajo del umbral y cuánta energía representan (kWh).
+
+    Entre mediciones consecutivas ordenadas por instante, si |ΔP| < umbral_kw:
+    - cuenta el salto como no analizado;
+    - integra la energía de ese intervalo por regla de los trapecios (potencia media * horas).
+    """
+    ordenadas = sorted(mediciones, key=lambda m: m.instante)
+    cantidad = 0
+    energia_kwh = 0.0
+    for a, b in pairwise(ordenadas):
+        if abs(b.potencia_kw - a.potencia_kw) < umbral_kw:
+            cantidad += 1
+            horas = (b.instante - a.instante).total_seconds() / 3600.0
+            energia_kwh += (a.potencia_kw + b.potencia_kw) / 2.0 * horas
+    return cantidad, energia_kwh
 
 
 def histograma(valores: list[float], barras: int = 30) -> list[BarraHistograma]:
@@ -169,6 +187,14 @@ def estimar_min_eventos(dias: float, minimo: int = 3) -> int:
     return max(minimo, round(dias))
 
 
+def _ratio_qp_mediana(grupo: list[EventoCarga]) -> float | None:
+    """Mediana de |ΔQ|/|ΔP| del grupo: la forma del equipo (cuánta reactiva por kW). None sin reactiva."""
+    if not any(e.delta_kvar for e in grupo):
+        return None
+    ratios = [abs(e.delta_kvar) / abs(e.delta_kw) for e in grupo if e.delta_kw != 0]
+    return round(median(ratios), 3) if ratios else None
+
+
 def resumir_cargas(eventos: list[EventoCarga], etiquetas: list[int]) -> list[Carga]:
     """Convierte eventos etiquetados en cargas candidatas, de mayor a menor potencia."""
     if len(eventos) != len(etiquetas):
@@ -194,6 +220,7 @@ def resumir_cargas(eventos: list[EventoCarga], etiquetas: list[int]) -> list[Car
                 dispersion_kw=round(pstdev(abs(e.delta_kw) for e in grupo), 1),
                 reactiva_tipica_kvar=reactiva_tipica,
                 cos_phi_estimado=cos_phi,
+                ratio_qp_mediana=_ratio_qp_mediana(grupo),
             )
         )
     return sorted(cargas, key=lambda c: c.potencia_tipica_kw, reverse=True)

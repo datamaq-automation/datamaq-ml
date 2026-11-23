@@ -9,13 +9,26 @@ Uso:
 """
 
 import argparse
+import sys
 from datetime import datetime
 from pathlib import Path
+from typing import Any
 
-from src.application.cargas.dtos.identificar_cargas import IdentificarCargasRequest
+from src.application.cargas.dtos.identificar_cargas import (
+    CargaResponse,
+    IdentificarCargasRequest,
+    IdentificarCargasResponse,
+)
 from src.application.cargas.use_cases.identificar_cargas import IdentificarCargasUseCase
 from src.domain.cargas.entities import Carga
-from src.domain.cargas.repositories import CargaRepository
+from src.infrastructure.cli.presentacion import (
+    error_que_ensena,
+    imprimir_error,
+    lineas_explicacion,
+    lineas_histograma,
+    lineas_resumen_entrenamiento,
+    mostrar,
+)
 from src.infrastructure.csv.carga_repository import CsvCargaRepository
 from src.infrastructure.mediciones_factory import get_mediciones
 from src.infrastructure.settings.config import describir_nilm, get_settings
@@ -23,6 +36,12 @@ from src.infrastructure.settings.logger import logger
 from src.infrastructure.sklearn.dbscan_agrupador import DbscanAgrupador
 
 TODO_EL_RANGO = (datetime(2000, 1, 1), datetime(2100, 1, 1))
+
+# Códigos de salida, los mismos que validar_dia_real: 0 = terminó (incluso con advertencias),
+# 2 = argumentos inválidos o medidor desconocido, 3 = datos faltantes o ilegibles.
+CODIGO_OK = 0
+CODIGO_ARGUMENTOS = 2
+CODIGO_DATOS = 3
 
 # Opción de la CLI → variable de Settings. Lo que se pasa por argumento tiene prioridad.
 PARAMETROS_NILM = {
@@ -103,12 +122,127 @@ def leer_argumentos() -> argparse.Namespace:
     parser.add_argument(
         "--hasta", type=datetime.fromisoformat, default=TODO_EL_RANGO[1], help="ej. 2026-09-22"
     )
+    parser.add_argument(
+        "--explica", action="store_true", help="narra cada paso del entrenamiento con sus valores"
+    )
+    parser.add_argument(
+        "--grafico", action="store_true", help="dibuja en texto la distribución de saltos"
+    )
     agregar_parametros_nilm(parser)
     return parser.parse_args()
 
 
-def main() -> None:
+def _carga(c: CargaResponse) -> Carga:
+    return Carga(
+        potencia_tipica_kw=c.potencia_tipica_kw,
+        encendidos=c.encendidos,
+        apagados=c.apagados,
+        dispersion_kw=c.dispersion_kw,
+        reactiva_tipica_kvar=c.reactiva_tipica_kvar,
+        ratio_qp_mediana=c.ratio_qp_mediana,
+    )
+
+
+def _resumen_entrenamiento(r: IdentificarCargasResponse) -> dict[str, Any]:
+    """Lo que la validación necesita para usar el mismo umbral y el mismo régimen."""
+    return {
+        "umbral_kw": r.umbral.kw,
+        "separacion": r.umbral.separacion,
+        "regimen": r.umbral.regimen,
+        "sin_modos_separables": r.sin_modos_separables,
+        "eventos": r.eventos,
+        "radio_kw": r.agrupamiento.radio_kw,
+        "modos": [m.model_dump() for m in r.modos],
+        "saltos_bajo_umbral": {
+            "cantidad": r.saltos_bajo_umbral.cantidad,
+            "energia_kwh": r.saltos_bajo_umbral.energia_kwh,
+        },
+    }
+
+
+def _mostrar_resultado(
+    r: IdentificarCargasResponse, medidor: str, explica: bool, grafico: bool
+) -> None:
+    """Lo que ve el estudiante al final. Solo presenta: no cambia el resultado ni los archivos."""
+    mostrar(lineas_resumen_entrenamiento(r, medidor))
+    if explica:
+        mostrar(lineas_explicacion(r))
+    if grafico:
+        mostrar(lineas_histograma(r.histograma, r.umbral.kw))
+
+
+def _error_de_rango(args: argparse.Namespace) -> list[str] | None:
+    if args.hasta <= args.desde:
+        return error_que_ensena(
+            "El rango de fechas está al revés.",
+            f"--hasta ({args.hasta:%Y-%m-%d}) no es posterior a --desde ({args.desde:%Y-%m-%d}).",
+            "poné --hasta después de --desde, por ejemplo --desde 2026-09-15 --hasta 2026-09-22.",
+        )
+    return None
+
+
+def _error_de_medidores(
+    args: argparse.Namespace, disponibles: list[str], entrada: Path
+) -> int | None:
+    """Código de salida si no hay mediciones o si piden un medidor que no existe; None si todo está bien."""
+    if not disponibles:
+        imprimir_error(
+            error_que_ensena(
+                f"No encuentro mediciones en {entrada}.",
+                "el CLI lee un CSV por medidor en esa carpeta y no hay ninguno.",
+                "generá datos de prueba con ./run.sh simulate, o copiá el CSV del medidor a esa "
+                "carpeta.",
+                "README.md, sección de datos",
+            )
+        )
+        return CODIGO_DATOS
+    desconocidos = [m for m in args.medidores if m not in disponibles]
+    if desconocidos:
+        imprimir_error(
+            error_que_ensena(
+                f"Medidor desconocido: {', '.join(desconocidos)}.",
+                "el nombre tiene que coincidir con un CSV de la carpeta, sin la extensión .csv.",
+                f"usá uno de estos: {', '.join(disponibles)}.",
+            )
+        )
+        return CODIGO_ARGUMENTOS
+    return None
+
+
+def _entrenar_medidores(
+    caso_de_uso: IdentificarCargasUseCase,
+    resultados: CsvCargaRepository,
+    medidores: list[str],
+    args: argparse.Namespace,
+) -> int:
+    """Entrena cada medidor. Un CSV ilegible (valor no numérico, columna que falta) es un error de datos."""
+    try:
+        for medidor in medidores:
+            r = caso_de_uso.execute(
+                IdentificarCargasRequest(medidor=medidor, desde=args.desde, hasta=args.hasta)
+            )
+            resultados.guardar(medidor, [_carga(c) for c in r.cargas])
+            resultados.guardar_entrenamiento(medidor, _resumen_entrenamiento(r))
+            _mostrar_resultado(r, medidor, args.explica, args.grafico)
+    except (ValueError, KeyError) as error:
+        imprimir_error(
+            error_que_ensena(
+                "No pude leer las mediciones.",
+                f"el CSV tiene un dato que no se puede interpretar ({error}).",
+                "revisá que las columnas sean instante y potencia_kw, y que la potencia sea un "
+                "número.",
+                "README.md, sección de datos",
+            )
+        )
+        return CODIGO_DATOS
+    return CODIGO_OK
+
+
+def main() -> int:
     args = leer_argumentos()
+    if (error := _error_de_rango(args)) is not None:
+        imprimir_error(error)
+        return CODIGO_ARGUMENTOS
     cambios = {
         var: getattr(args, opcion)
         for opcion, var in PARAMETROS_NILM.items()
@@ -117,7 +251,7 @@ def main() -> None:
     settings = get_settings().model_copy(update=cambios)
     entrada, salida = Path(settings.MEDICIONES_CSV_DIR), Path(settings.RESULTADOS_DIR)
     repositorio = get_mediciones(settings)
-    resultados: CargaRepository = CsvCargaRepository(salida)
+    resultados = CsvCargaRepository(salida)
     caso_de_uso = IdentificarCargasUseCase(
         mediciones=repositorio,
         agrupador=DbscanAgrupador(),
@@ -129,17 +263,8 @@ def main() -> None:
         min_eventos=settings.NILM_MIN_EVENTOS,
     )
     disponibles = repositorio.medidores()
-    if not disponibles:
-        logger.error("No hay CSV en %s: corré primero la exportación de datos", entrada)
-        return
-    desconocidos = [m for m in args.medidores if m not in disponibles]
-    if desconocidos:
-        logger.error(
-            "Medidores desconocidos: %s (disponibles: %s)",
-            ", ".join(desconocidos),
-            ", ".join(disponibles),
-        )
-        return
+    if (error := _error_de_medidores(args, disponibles, entrada)) is not None:
+        return error
     medidores = args.medidores or disponibles
 
     logger.info(describir_nilm(settings))
@@ -149,14 +274,8 @@ def main() -> None:
         len(disponibles),
         entrada,
     )
-    for medidor in medidores:
-        r = caso_de_uso.execute(
-            IdentificarCargasRequest(medidor=medidor, desde=args.desde, hasta=args.hasta)
-        )
-        resultados.guardar(
-            medidor, [Carga(c.potencia_tipica_kw, c.encendidos, c.apagados) for c in r.cargas]
-        )
+    return _entrenar_medidores(caso_de_uso, resultados, medidores, args)
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

@@ -1,0 +1,5 @@
+etiqueta,potencia_nominal_kw,trafo,tipo_proceso,forma_arranque,cos_phi
+Motor de ejemplo 1,90,T1,bombeo,directo,0.85
+Motor de ejemplo 2,45,T1,mezcla,estrella_triangulo,0.84
+Motor de ejemplo 3,22,T2,transporte,variador,0.82
+Motor de ejemplo 4,15,T2,ventilacion,arranque_suave,

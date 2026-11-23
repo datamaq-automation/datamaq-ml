@@ -7,6 +7,7 @@ valores de |ΔP| y se comparan por cantidad de grupos, ruido y silueta. Ver docs
 from dataclasses import dataclass
 
 import numpy as np
+from scipy.cluster.hierarchy import fcluster, linkage
 from sklearn.cluster import DBSCAN, KMeans
 from sklearn.metrics import silhouette_score
 
@@ -59,4 +60,52 @@ def agrupar_dbscan(
         grupos=len(set(etiquetas.tolist()) - {RUIDO}),
         ruido=int(np.sum(etiquetas == RUIDO)),
         silueta=_silueta(valores, etiquetas),
+    )
+
+
+METODOS_ENLACE = ("single", "complete", "average", "ward")
+
+
+def agrupar_aglomerativo(
+    valores_kw: list[float],
+    n_clusters: int | None = None,
+    distancia_corte: float | None = None,
+    metodo: str = "complete",
+) -> ResultadoAgrupamiento:
+    """Agrupamiento jerárquico aglomerativo con dendrograma.
+
+    Permite cortar por número de clusters (n_clusters) o por distancia de unión (distancia_corte).
+    Soporta métodos de enlace: 'single', 'complete', 'average', 'ward'.
+    """
+    if metodo not in METODOS_ENLACE:
+        raise ValueError(f"Método de enlace no soportado: '{metodo}'. Opciones: {METODOS_ENLACE}")
+    if n_clusters is None and distancia_corte is None:
+        raise ValueError("Debe especificar n_clusters o distancia_corte.")
+
+    valores = np.asarray(valores_kw, dtype=float)
+    if len(valores) < 2:
+        return ResultadoAgrupamiento(
+            algoritmo=f"Aglomerativo ({metodo})",
+            etiquetas=[0] * len(valores),
+            grupos=len(valores),
+            ruido=0,
+            silueta=None,
+        )
+
+    z = linkage(valores.reshape(-1, 1), method=metodo)
+
+    if n_clusters is not None:
+        etiquetas_raw = fcluster(z, t=n_clusters, criterion="maxclust")
+    else:
+        etiquetas_raw = fcluster(z, t=distancia_corte, criterion="distance")
+
+    etiquetas = [int(e) for e in etiquetas_raw]
+    grupos_unicos = set(etiquetas)
+
+    return ResultadoAgrupamiento(
+        algoritmo=f"Aglomerativo ({metodo})",
+        etiquetas=etiquetas,
+        grupos=len(grupos_unicos),
+        ruido=0,
+        silueta=_silueta(valores, np.asarray(etiquetas)),
     )

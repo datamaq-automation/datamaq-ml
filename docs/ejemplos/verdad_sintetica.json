@@ -1,0 +1,42 @@
+{
+  "contrato": "nilm.verdad.v1",
+  "generado_en_utc": "2026-09-02T03:00:00Z",
+  "fecha_local": "2026-09-01",
+  "zona_horaria": "America/Argentina/Buenos_Aires",
+  "ventana_utc": {"desde": "2026-09-01T03:00:00Z", "hasta": "2026-09-02T03:00:00Z"},
+  "medidor": {"device_id": "sintetico", "etiqueta_ml": "sintetico", "fuente": "simulador", "desfase_reloj_s": 0.0, "calidad": {"estado": "OK", "motivos": []}},
+  "cargas": [
+    {
+      "nombre": "Carga 90 kW",
+      "load_id": null,
+      "intervalos": [
+        {
+          "inicio_utc": "2026-09-01T10:00:00Z",
+          "fin_utc": "2026-09-01T10:25:00Z",
+          "horas": 0.416667,
+          "energia_kwh_medida": 37.5,
+          "potencia_media_kw": 90.0,
+          "delta_reactiva_kvar": null,
+          "confianza": 1.0,
+          "origen": "MEDIDO"
+        }
+      ]
+    },
+    {
+      "nombre": "Carga 15 kW",
+      "load_id": null,
+      "intervalos": [
+        {
+          "inicio_utc": "2026-09-01T14:00:00Z",
+          "fin_utc": "2026-09-01T14:10:00Z",
+          "horas": 0.166667,
+          "energia_kwh_medida": 2.5,
+          "potencia_media_kw": 15.0,
+          "delta_reactiva_kvar": null,
+          "confianza": 1.0,
+          "origen": "MEDIDO"
+        }
+      ]
+    }
+  ]
+}

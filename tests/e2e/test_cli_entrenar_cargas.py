@@ -1,5 +1,6 @@
 """tests/e2e/test_cli_entrenar_cargas.py — ./run.sh train de punta a punta sobre carpetas temporales."""
 
+import json
 from pathlib import Path
 
 import pytest
@@ -35,7 +36,18 @@ def test_train_guarda_las_cargas(
     monkeypatch.setattr("sys.argv", ["train", "planta"])
     entrenar()
     lineas = (salida / "cargas_planta.csv").read_text(encoding="utf-8").splitlines()
-    assert lineas == ["potencia_tipica_kw,encendidos,apagados,ciclos", "90.0,12,11,11"]
+    assert lineas[0] == (
+        "potencia_tipica_kw,encendidos,apagados,ciclos,dispersion_kw,reactiva_tipica_kvar,ratio_qp_mediana"
+    )
+    potencia, encendidos, apagados, ciclos, _, reactiva, ratio = lineas[1].split(",")
+    assert (potencia, encendidos, apagados, ciclos) == ("90.0", "12", "11", "11")
+    assert reactiva == "0.0"  # la serie de prueba no trae reactiva: sin ratio
+    assert ratio == ""
+    regimen = json.loads((salida / "entrenamiento_planta.json").read_text(encoding="utf-8"))
+    assert (
+        regimen["regimen"] == "otsu"
+    )  # la serie de prueba tiene η alto: Otsu y DBSCAN, como antes
+    assert regimen["sin_modos_separables"] is False
 
 
 def test_train_no_procesa_medidores_desconocidos(

@@ -31,6 +31,7 @@ from src.application.cargas.dtos.desagregar_cargas import (
     AtribuirCargasBatchRequestDTO,
     AtribuirCargasBatchResponseDTO,
     FirmaConfirmadaDTO,
+    ParametrosMotorDTO,
 )
 from src.application.cargas.use_cases.atribuir_cargas_batch import (
     AtribuirCargasBatchUseCase,
@@ -187,6 +188,18 @@ def _construir_parser() -> argparse.ArgumentParser:
         default=None,
         help="Escribe el contrato nilm.intervalos.v1 en este archivo",
     )
+    parser.add_argument(
+        "--umbral-kw",
+        type=float,
+        default=None,
+        help="Umbral |ΔP| de detección, el del entrenamiento (por defecto: el mínimo del catálogo)",
+    )
+    parser.add_argument(
+        "--tolerancia-por-dispersion",
+        action="store_true",
+        help="Tolerancia de cada firma desde su dispersión (factor × σ, acotada)",
+    )
+    parser.add_argument("--tolerancia-max-kw", type=float, default=8.0)
     return parser
 
 
@@ -223,6 +236,11 @@ def _ejecutar(parsed: argparse.Namespace) -> int:
             generado_en_utc=datetime.now(timezone.utc).replace(tzinfo=None, microsecond=0),
             mediciones=mediciones,
             firmas=firmas,
+            parametros_motor=ParametrosMotorDTO(
+                tolerancia_por_dispersion=parsed.tolerancia_por_dispersion,
+                tolerancia_max_kw=parsed.tolerancia_max_kw,
+            ),
+            umbral_deteccion_kw=parsed.umbral_kw,
         )
     )
     _registrar(resultado)

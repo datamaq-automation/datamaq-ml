@@ -85,7 +85,192 @@ validar_ssh_prod() {
     fi
 }
 
-COMMAND="${1:-help}"
+mostrar_menu() {
+    cat <<'TXT'
+Uso: ./run.sh [COMANDO] [OPCIONES]
+Detalle de un comando: ./run.sh ayuda <comando>
+
+DATOS
+  simulate       genera un tablero sintético con cargas conocidas
+  fetch-data     descarga datasets para estudiantes (t1, t2) desde el servidor
+  disaggregate   desagrega un día con firmas confirmadas (batch diario)
+
+APRENDIZAJE
+  train          encuentra las cargas sin etiquetas (no supervisado)
+  supervise      entrena un clasificador con la verdad de un medidor simulado
+
+EVALUACIÓN
+  evaluate       compara lo encontrado con la verdad conocida
+
+ENSEÑANZA
+  demo           recorrido guiado sobre datos sintéticos (--rapido sin pausas)
+  glosario       define un término del módulo (./run.sh glosario Otsu)
+
+SERVIDOR Y DESARROLLO
+  dev, start     levantan el servidor FastAPI (start dev | start prod)
+  test, gauntlet, audit, lint, format, install
+
+Para empezar: ./run.sh simulate --dias 14
+              y después: ./run.sh train sintetico
+TXT
+}
+
+mostrar_ayuda_comando() {
+    case "$1" in
+        simulate)
+            cat <<'TXT'
+simulate · genera un tablero sintético con cargas conocidas
+  Parte de:  nada (crea datos de prueba)
+  Escribe:   data/input/sintetico.csv y su verdad en data/verdad/
+  Ejemplo:   ./run.sh simulate --dias 14
+TXT
+            ;;
+        fetch-data)
+            cat <<'TXT'
+fetch-data · descarga datasets reales para estudiantes desde el servidor
+  Parte de:  conexión HTTPS a api.datamaq.com.ar/static/isft199/
+  Escribe:   data/input/t1.csv y data/input/t2.csv
+  Ejemplo:   ./run.sh fetch-data
+TXT
+            ;;
+        train)
+            cat <<'TXT'
+train · identifica las cargas sin etiquetas (aprendizaje no supervisado)
+  Parte de:  un CSV de mediciones por medidor en data/input/
+  Hace:      detecta saltos de potencia → elige el umbral → agrupa por tamaño → resume
+  Ejercicio: E6 (agrupamiento por densidad)
+  Opciones:  --explica (narra cada paso) · --grafico (distribución de saltos en texto)
+  Ejemplos:  ./run.sh train sintetico
+             ./run.sh train sintetico --explica --grafico
+             ./run.sh train sintetico --desde AAAA-MM-DD --hasta AAAA-MM-DD
+TXT
+            ;;
+        supervise)
+            cat <<'TXT'
+supervise · entrena un clasificador con la verdad de un medidor simulado (supervisado)
+  Parte de:  un medidor simulado con su verdad (./run.sh simulate)
+  Hace:      aprende con un árbol de decisión y muestra las reglas
+  Ejercicio: E3 (árboles de decisión)
+  Ejemplo:   ./run.sh supervise
+TXT
+            ;;
+        forecast)
+            cat <<'TXT'
+forecast · pronostica demanda y evalúa regresión con partición temporal
+  Parte de:  serie de energía sintética o archivo CSV de telemetría
+  Hace:      evalúa promedio, último valor, tendencia y árbol CART con MAE y RMSE
+  Ejercicio: E4d (regresión y partición temporal honesta)
+  Ejemplo:   ./run.sh forecast
+TXT
+            ;;
+        evaluate)
+            cat <<'TXT'
+evaluate · compara lo identificado con la verdad conocida
+  Parte de:  el resultado de train y la verdad de un medidor simulado
+  Hace:      calcula sensibilidad y precisión por carga
+  Ejercicio: E5 (separación entre entrenamiento y verdad)
+  Ejemplo:   ./run.sh evaluate
+TXT
+            ;;
+        demo)
+            cat <<'TXT'
+demo · recorrido guiado sobre datos sintéticos (para la primera clase)
+  Hace:      simulate → train --explica --grafico → evaluate → supervise
+  Pausas:    un ENTER por paso; con --rapido corre sin pausas
+  Ejemplo:   ./run.sh demo --rapido
+TXT
+            ;;
+        glosario)
+            cat <<'TXT'
+glosario · define un término del módulo con su ejemplo
+  Parte de:  docs/glosario.md
+  Ejemplos:  ./run.sh glosario            (lista los términos)
+             ./run.sh glosario Otsu
+TXT
+            ;;
+        disaggregate)
+            cat <<'TXT'
+disaggregate · desagrega un día y calcula horas de marcha por máquina (batch diario)
+  Parte de:  un CSV del día y un catálogo de firmas confirmadas
+  Ejemplo:   ./run.sh disaggregate --help
+TXT
+            ;;
+        "")
+            mostrar_menu
+            ;;
+        *)
+            imprimir_error_comando "No conozco el comando «$1»." \
+                "ayuda pide el nombre exacto de un comando del menú." \
+                "corré ./run.sh para ver la lista y después ./run.sh ayuda <comando>."
+            return 1
+            ;;
+    esac
+}
+
+imprimir_error_comando() {
+    echo "✘ ERROR  $1" >&2
+    echo "  Por qué:  $2" >&2
+    echo "  Cómo:     $3" >&2
+}
+
+buscar_glosario() {
+    local archivo="${GLOSARIO_PATH:-docs/glosario.md}"
+    if [[ ! -f "$archivo" ]]; then
+        imprimir_error_comando "No encuentro el glosario ($archivo)." \
+            "el glosario llega con el PR #32 de datamaq-ml, que puede no estar mergeado." \
+            "pedí el merge del PR #32, o corré este comando desde la rama docs/issue-28-glosario."
+        return 1
+    fi
+    local termino="${1:-}"
+    if [[ -z "$termino" ]]; then
+        echo "Términos del glosario (./run.sh glosario <término> para uno):"
+        grep '^\*\*' "$archivo" | sed -E 's/^\*\*([^*]+)\*\*.*/  \1/'
+        return 0
+    fi
+    local coincidencias
+    coincidencias="$(grep -i -F -- "$termino" "$archivo" | grep '^\*\*' || true)"
+    if [[ -z "$coincidencias" ]]; then
+        imprimir_error_comando "No tengo el término «$termino»." \
+            "el glosario no lo define todavía." \
+            "corré ./run.sh glosario para ver la lista completa."
+        return 1
+    fi
+    echo "$coincidencias" | sed -E 's/\*\*//g' | fold -s -w 78
+}
+
+correr_demo() {
+    local rapido=0
+    [[ "${1:-}" == "--rapido" ]] && rapido=1
+    local pasos=(
+        "simulate --dias 14|crear un tablero con cargas conocidas"
+        "train sintetico --explica --grafico|encontrar las cargas sin etiquetas y explicar cómo"
+        "evaluate|comparar lo encontrado con la verdad conocida"
+        "supervise|aprender con un árbol de decisión y leer sus reglas"
+    )
+    local total=${#pasos[@]} n=0 paso comando texto
+    for paso in "${pasos[@]}"; do
+        n=$((n + 1))
+        comando="${paso%%|*}"
+        texto="${paso#*|}"
+        echo ""
+        echo "── Paso $n/$total · $texto"
+        if (( ! rapido )) && [[ -t 0 ]]; then
+            read -r -p "   ENTER para correr: ./run.sh $comando " _
+        fi
+        # El comando se separa en palabras a propósito: son argumentos de run.sh.
+        # shellcheck disable=SC2086
+        if ! bash "$SCRIPT_DIR/run.sh" $comando; then
+            imprimir_error_comando "Falló el paso $n/$total (./run.sh $comando)." \
+                "el mensaje de arriba dice el motivo." \
+                "corré ./run.sh ayuda ${comando%% *} y revisá los datos de entrada."
+            return 1
+        fi
+    done
+    echo ""
+    echo "✔ OK  Recorrido completo. Siguiente paso: ./run.sh ayuda train"
+}
+
+COMMAND="${1:-menu}"
 
 case "$COMMAND" in
     dev)
@@ -122,6 +307,16 @@ case "$COMMAND" in
         echo "🧪 Generando un tablero simulado con cargas conocidas..."
         exec "$PYTHON_BIN" -m src.infrastructure.cli.simular_tablero "${@:2}"
         ;;
+    fetch-data)
+        ensure_venv
+        echo "📥 Descargando datasets para estudiantes..."
+        exec "$PYTHON_BIN" -m src.infrastructure.cli.descargar_datos_estudiantes "${@:2}"
+        ;;
+    export-edu)
+        ensure_venv
+        echo "📦 Exportando repositorio educativo sanitizado..."
+        exec "$PYTHON_BIN" -m src.infrastructure.cli.exportar_repo_educativo "${@:2}"
+        ;;
     evaluate)
         ensure_venv
         ARGS=("${@:2}")
@@ -139,6 +334,15 @@ case "$COMMAND" in
         fi
         echo "🎓 Entrenando un clasificador con la verdad de un medidor simulado..."
         exec "$PYTHON_BIN" -m src.infrastructure.cli.supervisar_cargas "${ARGS[@]}"
+        ;;
+    forecast)
+        ensure_venv
+        ARGS=("${@:2}")
+        if resolver_modo "${ARGS[0]:-}"; then
+            ARGS=("${ARGS[@]:1}")
+        fi
+        echo "📈 Pronosticando demanda eléctrica con partición temporal..."
+        exec "$PYTHON_BIN" -m src.infrastructure.cli.pronosticar_demanda "${ARGS[@]}"
         ;;
     disaggregate)
         ensure_venv
@@ -186,30 +390,18 @@ case "$COMMAND" in
             "$PIP_BIN" install -r requirements.txt
         fi
         ;;
-    help|--help|-h)
-        echo ""
-        echo "Uso: ./run.sh [COMANDO] [OPCIONES]"
-        echo ""
-        echo "Comandos disponibles:"
-        echo "  dev       : Levanta el servidor FastAPI con reload automático en puerto 8000"
-        echo "  start     : Levanta el servidor FastAPI (por defecto dev)"
-        echo "              Opcional: dev (datos locales) o prod (datos desde VPS via SSH)"
-        echo "              Uso: ./run.sh start dev    # datos en data/input/"
-        echo "                   ./run.sh start prod   # datos descargados del VPS"
-        echo "  train     : Identifica las cargas de data/input/ y guarda resultados en data/output/"
-        echo "              Opcional: medidores y --desde/--hasta (ej. ./run.sh train planta_2_a --desde 2026-09-15)"
-        echo "  simulate  : Genera data/input/sintetico.csv y su verdad en data/verdad/ (cargas conocidas)"
-        echo "  evaluate  : Compara lo identificado con la verdad de un medidor simulado (sensibilidad, precisión)"
-        echo "  supervise : Aprende las cargas de un medidor simulado con un árbol de decisión (supervisado)"
-        echo "  disaggregate : Desagrega eventos y calcula horas de marcha efectivas por máquina (batch diario)"
-        echo "  test      : Ejecuta la suite de pruebas unitarias y de arquitectura con pytest"
-        echo "  gauntlet  : Ejecuta las 11 reglas del Guantelete de Restricciones (test_architecture.py)"
-        echo "  audit     : Ejecuta auditorías de código muerto y componentes Dios"
-        echo "  lint      : Comprueba errores de estilo y formato con ruff"
-        echo "  format    : Formatea y corrige automáticamente el código con ruff"
-        echo "  install   : Sincroniza las dependencias en el entorno virtual .venv"
-        echo "  help      : Muestra esta ayuda"
-        echo ""
+    menu|help|--help|-h)
+        mostrar_menu
+        ;;
+    ayuda)
+        mostrar_ayuda_comando "${2:-}" || exit 1
+        ;;
+    demo)
+        ensure_venv
+        correr_demo "${2:-}"
+        ;;
+    glosario)
+        buscar_glosario "${*:2}"
         ;;
     *)
         echo "❌ Comando desconocido: $COMMAND"

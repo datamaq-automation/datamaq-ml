@@ -27,6 +27,21 @@ El archivo `.env` es local y **no se versiona**. No pongas secretos en el repo: 
 > **Los datos reales no se versionan.** `data/input/` y `data/verdad/` están ignorados por Git,
 > salvo el dataset sintético (`sintetico.csv`), que se genera con `./run.sh simulate`.
 
+Para estudiantes y docentes de **ISFT 199**, los datasets anonimizados de práctica (`t1.csv` y `t2.csv`) se sincronizan directamente desde la distribución estática pública:
+
+```bash
+./run.sh fetch-data       # Descarga t1.csv y t2.csv automáticamente a data/input/
+```
+
+En modo local (`MEDICIONES_SOURCE=local`, valor por defecto), cada medidor es un archivo `data/input/<medidor>.csv`
+con columnas `instante,potencia_kw`.
+
+- `sintetico`: generado localmente con `./run.sh simulate` (verdad de terreno en `data/verdad/sintetico.csv`).
+- `t1`: Trafo 1 (Sector preparación de pasta y fuerza motriz, 7.515 lecturas).
+- `t2`: Trafo 2 (Máquina papelera continua, 8.376 lecturas).
+
+> **Nombre exacto del medidor:** coincide con el nombre del archivo sin extensión (ej. `t1`, `t2`, `sintetico`).
+
 ### Formato del CSV
 
 Un archivo por medidor y día, con instantes en **UTC**:
@@ -69,6 +84,16 @@ documenta el formato: `--device-id <uuid-del-medidor>`.
 ./run.sh audit        # Código muerto y componentes Dios
 ./run.sh lint         # Estilo y formato con ruff
 ```
+
+### Códigos de salida de `train`
+
+| Código | Significado |
+|---|---|
+| `0` | Terminó. Puede haber advertencias (sin cargas, eventos sin grupo, sin escalones separables): aparecen en el resumen y no cambian el código. |
+| `2` | Argumentos inválidos: `--hasta` no es posterior a `--desde`, o el medidor pedido no existe en la carpeta. |
+| `3` | Datos de entrada ausentes o inválidos: no hay CSV de mediciones en `MEDICIONES_CSV_DIR`, o el CSV no se puede leer (una potencia que no es número, una columna que falta). |
+
+Los scripts que corren `train` con `set -e` (como `scripts/validacion_privada.sh`) se detienen ante un `2` o un `3`.
 
 ## Desagregación batch diaria (`disaggregate`)
 
@@ -270,6 +295,34 @@ carpeta fuera de git (el script se niega a escribir dentro de un repo) y se entr
 
 **No redistribuir.** Los datos reales anonimizados son del cliente. Quien los reciba no los copia, no los publica y no los
 sube a ningún servicio. Las guías con respuestas (`docs/guia-docente.md`) no se publican a estudiantes.
+
+## Verdad de terreno, evaluación y catálogo por placa
+
+Para medir qué tan bien encuentra el motor las máquinas, hace falta una verdad por intervalos
+(`nilm.verdad.v1`, ver `docs/verdad-de-terreno.md`). Hoy se obtiene del simulador; cuando esté el
+autómata con los contactos NA, se obtiene de los contactores.
+
+```bash
+# 1) Un día simulado con la verdad de contactores; --desfase-s corre el reloj del autómata
+./run.sh simulate --dias 1 --verdad-json output/verdad.json --desfase-s 3
+
+# 2) La salida del batch con las firmas de esas cargas (mismos nombres que la verdad)
+./run.sh disaggregate "Sintético" --device-id 00000000-0000-4000-8000-000000000001 \
+  --archivo data/input/sintetico.csv --firmas config/firmas.json --salida-json output/inferido.json
+
+# 3) Precisión y sensibilidad por máquina, por tiempo y por eventos (±300 s por defecto)
+./.venv/bin/python -m src.infrastructure.cli.evaluar_verdad \
+  --inferido output/inferido.json --verdad output/verdad.json --salida-json output/evaluacion.json
+
+# 4) Catálogo por placa: firma esperada según potencia, cos φ y forma de arranque
+./.venv/bin/python -m src.infrastructure.cli.comparar_placas \
+  --placas <catálogo local>.csv --cargas output/cargas_<medidor>.csv
+```
+
+- `--tolerancia-s` cambia la tolerancia de emparejamiento de arranques y paradas (300 s por defecto).
+- Con `--desfase-s` se mide cómo degrada el desfase de reloj: 0 a 10 s es el rango que hay que validar.
+- El formato del catálogo por placa y la tabla de formas de arranque están en `docs/catalogo-por-placa.md`.
+- El ejemplo de práctica con etiquetas verdaderas: `docs/material-ensenanza/practicas/practica_supervisado_arranques.py`.
 
 ## Configuración
 

@@ -7,10 +7,13 @@ from src.application.cargas.dtos.identificar_cargas import (
     EventoResponse,
     IdentificarCargasRequest,
     IdentificarCargasResponse,
+    ModoResponse,
     PuntoResponse,
+    SaltosBajoUmbralResponse,
     UmbralResponse,
 )
-from src.domain.cargas.entities import Carga, EventoCarga, Medicion
+from src.domain.cargas.entities import Carga, EstimacionUmbral, EventoCarga, Medicion
+from src.domain.cargas.regimenes import Modo, etiquetar_por_modos, hallar_regimen
 from src.domain.cargas.repositories import AgrupadorEventos, Bitacora, MedicionRepository
 from src.domain.cargas.services import (
     detectar_eventos,
@@ -20,8 +23,33 @@ from src.domain.cargas.services import (
     histograma,
     nivel_de_ruido,
     resumir_cargas,
+    saltos_bajo_umbral,
     saltos_kw,
 )
+
+REGIMEN_OTSU = "otsu"
+REGIMEN_VALLE = "valle_claro"
+REGIMEN_SIN_MODOS = "sin_modos_separables"
+
+
+def _cargas_respuesta(
+    cargas: list[Carga], dias: float, balance_minimo: float
+) -> list[CargaResponse]:
+    return [
+        CargaResponse(
+            potencia_tipica_kw=c.potencia_tipica_kw,
+            encendidos=c.encendidos,
+            apagados=c.apagados,
+            ciclos=c.ciclos,
+            ciclos_por_dia=round(c.ciclos / dias, 1) if dias >= 1 else None,
+            on_off=c.es_on_off(balance_minimo),
+            dispersion_kw=c.dispersion_kw,
+            reactiva_tipica_kvar=c.reactiva_tipica_kvar,
+            cos_phi_estimado=c.cos_phi_estimado,
+            ratio_qp_mediana=c.ratio_qp_mediana,
+        )
+        for c in cargas
+    ]
 
 
 class IdentificarCargasUseCase:
@@ -49,16 +77,30 @@ class IdentificarCargasUseCase:
         serie = self._leer(request)
         umbral = self._elegir_umbral(serie)
         eventos = self._detectar(serie, umbral.kw)
+        agrupamiento, etiquetas, modos = self._agrupar(serie, eventos, umbral)
+        cargas = self._resumir(serie, eventos, etiquetas)
+        return self._responder(
+            request.medidor, serie, eventos, etiquetas, cargas, umbral, agrupamiento, modos
+        )
+
+    def _agrupar(
+        self, serie: list[Medicion], eventos: list[EventoCarga], umbral: UmbralResponse
+    ) -> tuple[AgrupamientoResponse, list[int], list[Modo]]:
+        """Agrupa los eventos según el régimen: DBSCAN (Otsu), modos del valle, o nada si no hay modos."""
+        if umbral.regimen == REGIMEN_SIN_MODOS:
+            self._logger.warning(
+                "Sin modos separables: no se agrupan cargas (hace falta una firma confirmada)"
+            )
+            return _agrupamiento_sin_grupos(), [-1] * len(eventos), []
+        if umbral.regimen == REGIMEN_VALLE:
+            return _agrupar_por_modos(serie, eventos, self._logger)
         agrupamiento = self._elegir_agrupamiento(serie, eventos, umbral.kw)
         etiquetas = (
             self._agrupador.agrupar(eventos, agrupamiento.radio_kw, agrupamiento.min_eventos)
             if eventos and agrupamiento.radio_kw
-            else []
+            else [-1] * len(eventos)
         )
-        cargas = self._resumir(serie, eventos, etiquetas)
-        return self._responder(
-            request.medidor, serie, eventos, etiquetas, cargas, umbral, agrupamiento
-        )
+        return agrupamiento, etiquetas, []
 
     def _responder(
         self,
@@ -69,9 +111,13 @@ class IdentificarCargasUseCase:
         cargas: list[Carga],
         umbral: UmbralResponse,
         agrupamiento: AgrupamientoResponse,
+        modos: list[Modo],
     ) -> IdentificarCargasResponse:
         dias = _dias(serie)
         encendidos = sum(e.es_encendido for e in eventos)
+        cant_bajo, energia_bajo = (
+            saltos_bajo_umbral(serie, umbral.kw) if umbral.kw is not None else (0, 0.0)
+        )
         return IdentificarCargasResponse(
             medidor=medidor,
             mediciones=len(serie),
@@ -83,22 +129,14 @@ class IdentificarCargasUseCase:
             potencia_media_kw=round(sum(m.potencia_kw for m in serie) / len(serie), 1)
             if serie
             else 0.0,
-            cargas=[
-                CargaResponse(
-                    potencia_tipica_kw=c.potencia_tipica_kw,
-                    encendidos=c.encendidos,
-                    apagados=c.apagados,
-                    ciclos=c.ciclos,
-                    ciclos_por_dia=round(c.ciclos / dias, 1) if dias >= 1 else None,
-                    on_off=c.es_on_off(self._balance_minimo),
-                    dispersion_kw=c.dispersion_kw,
-                    reactiva_tipica_kvar=c.reactiva_tipica_kvar,
-                    cos_phi_estimado=c.cos_phi_estimado,
-                )
-                for c in cargas
-            ],
+            cargas=_cargas_respuesta(cargas, dias, self._balance_minimo),
             umbral=umbral,
             agrupamiento=agrupamiento,
+            saltos_bajo_umbral=SaltosBajoUmbralResponse(
+                cantidad=cant_bajo, energia_kwh=round(energia_bajo, 1)
+            ),
+            sin_modos_separables=umbral.regimen == REGIMEN_SIN_MODOS,
+            modos=_modos_respuesta(modos),
             serie=[
                 PuntoResponse(instante=m.instante, potencia_kw=m.potencia_kw)
                 for m in sorted(serie, key=lambda m: m.instante)
@@ -142,18 +180,12 @@ class IdentificarCargasUseCase:
             "Umbral automático: %s kW (Otsu, separación ruido/eventos η=%.2f)",
             estimacion.umbral_kw, estimacion.separacion,
         )  # fmt: skip
-        confiable = estimacion.es_confiable(self._separacion_minima)
-        if not confiable:
-            self._logger.warning(
-                "No hay un valle claro entre ruido y eventos (η=%.2f < %.2f): el umbral es poco confiable",
-                estimacion.separacion, self._separacion_minima,
+        if estimacion.es_confiable(self._separacion_minima):
+            return UmbralResponse(
+                kw=estimacion.umbral_kw, automatico=True, separacion=estimacion.separacion,
+                confiable=True, regimen=REGIMEN_OTSU,
             )  # fmt: skip
-        return UmbralResponse(
-            kw=estimacion.umbral_kw,
-            automatico=True,
-            separacion=estimacion.separacion,
-            confiable=confiable,
-        )
+        return _umbral_de_valle(serie, estimacion, self._logger, self._separacion_minima)
 
     def _elegir_agrupamiento(
         self, serie: list[Medicion], eventos: list[EventoCarga], umbral_kw: float | None
@@ -228,6 +260,71 @@ class IdentificarCargasUseCase:
                 "Hubo eventos pero ningún grupo alcanzó el mínimo para ser una carga"
             )
         return cargas
+
+
+def _agrupar_por_modos(
+    serie: list[Medicion], eventos: list[EventoCarga], logger: Bitacora
+) -> tuple[AgrupamientoResponse, list[int], list[Modo]]:
+    """Régimen de valle claro: cada modo de eventos es una carga; el radio es el de cada modo."""
+    modos = hallar_regimen(saltos_kw(serie)).modos
+    etiquetas = etiquetar_por_modos([abs(e.delta_kw) for e in eventos], modos)
+    radios = [m.radio_kw for m in modos]
+    logger.info(
+        "Modos separables por valle: %d (radio por modo: %s kW)",
+        len(modos), ", ".join(f"{r:.1f}" for r in radios) or "—",
+    )  # fmt: skip
+    return _agrupamiento_sin_grupos(radio_kw=max(radios, default=None)), etiquetas, modos
+
+
+def _umbral_de_valle(
+    serie: list[Medicion], estimacion: EstimacionUmbral, logger: Bitacora, separacion_minima: float
+) -> UmbralResponse:
+    """Con η bajo, Otsu no separa: el umbral es el valle del histograma de |ΔP|, si lo hay.
+
+    Sin valle no hay ningún umbral que separe nada: se conserva el de Otsu para contar eventos, y el
+    régimen queda en «sin modos separables» (no se agrupa).
+    """
+    logger.warning(
+        "η=%.2f < %.2f: Otsu no separa ruido y eventos; se busca el valle del histograma de |ΔP|",
+        estimacion.separacion, separacion_minima,
+    )  # fmt: skip
+    regimen = hallar_regimen(saltos_kw(serie))
+    if regimen.umbral_kw is None:
+        logger.warning("Sin valle en el histograma: se usa el umbral de Otsu, sin modos separables")
+        return UmbralResponse(
+            kw=estimacion.umbral_kw, automatico=True, separacion=estimacion.separacion,
+            confiable=False, regimen=REGIMEN_SIN_MODOS,
+        )  # fmt: skip
+    return UmbralResponse(
+        kw=regimen.umbral_kw,
+        automatico=True,
+        separacion=estimacion.separacion,
+        confiable=False,
+        regimen=REGIMEN_VALLE if regimen.hay_modos else REGIMEN_SIN_MODOS,
+    )
+
+
+def _modos_respuesta(modos: list[Modo]) -> list[ModoResponse]:
+    return [
+        ModoResponse(
+            desde_kw=m.desde_kw,
+            hasta_kw=m.hasta_kw,
+            cantidad=m.cantidad,
+            centro_kw=m.centro_kw,
+            dispersion_kw=m.dispersion_kw,
+            radio_kw=m.radio_kw,
+        )
+        for m in modos
+    ]
+
+
+def _agrupamiento_sin_grupos(radio_kw: float | None = None) -> AgrupamientoResponse:
+    return AgrupamientoResponse(
+        radio_kw=radio_kw,
+        radio_automatico=True,
+        min_eventos=0,
+        min_eventos_automatico=True,
+    )
 
 
 def _dias(serie: list[Medicion]) -> float:

@@ -9,10 +9,12 @@ import argparse
 from datetime import datetime
 from pathlib import Path
 
+from src.application.cargas.use_cases.construir_verdad import construir_verdad_simulada
 from src.domain.cargas.entities import CargaSimulada
 from src.domain.cargas.simulacion import (
     BANCO_AUTOMATICO,
     BANCO_FIJO,
+    simular_contactores,
     simular_tablero,
     simular_tablero_con_reactiva,
 )
@@ -28,6 +30,7 @@ CARGAS = [
     CargaSimulada(potencia_kw=40, ciclos_por_dia=6, duracion_min=60),
     CargaSimulada(potencia_kw=15, ciclos_por_dia=30, duracion_min=10),
 ]
+NOMBRES_MAQUINAS = ["Carga 90 kW", "Carga 40 kW", "Carga 15 kW"]
 INICIO = datetime(2026, 9, 1)
 
 
@@ -52,6 +55,18 @@ def leer_argumentos() -> argparse.Namespace:
         choices=["ninguno", BANCO_FIJO, BANCO_AUTOMATICO],
         default="ninguno",
         help="banco de capacitores en paralelo: fijo, automático o ninguno (por defecto: ninguno, sin reactiva)",
+    )
+    parser.add_argument(
+        "--verdad-json",
+        default=None,
+        help="escribe la verdad por intervalos de contactores (nilm.verdad.v1) en este archivo",
+    )
+    parser.add_argument(
+        "--desfase-s",
+        type=float,
+        default=0.0,
+        metavar="S",
+        help="desfase de reloj del autómata respecto del medidor, en segundos (por defecto: 0)",
     )
     parser.add_argument(
         "--ruido-q",
@@ -82,6 +97,28 @@ def main() -> None:
         )
     CsvMedicionRepository(Path(settings.MEDICIONES_CSV_DIR)).guardar(args.nombre, mediciones)
     CsvVerdadRepository(Path(settings.VERDAD_DIR)).guardar(args.nombre, verdad)
+    if args.verdad_json:
+        _escribir_verdad(args)
+
+
+def _escribir_verdad(args: argparse.Namespace) -> None:
+    tramos = simular_contactores(CARGAS, args.dias, args.semilla, INICIO, args.desfase_s)
+    maquinas = [(n, c.potencia_kw) for n, c in zip(NOMBRES_MAQUINAS, CARGAS, strict=True)]
+    verdad = construir_verdad_simulada(
+        maquinas,
+        tramos,
+        INICIO,
+        args.dias,
+        args.desfase_s,
+        etiqueta=args.nombre,
+        device_id="simulado",
+    )
+    ruta = Path(args.verdad_json)
+    ruta.parent.mkdir(parents=True, exist_ok=True)
+    ruta.write_text(verdad.model_dump_json(indent=2) + "\n", encoding="utf-8")
+    logger.info(
+        "Verdad por intervalos escrita: %d máquinas, desfase %s s", len(maquinas), args.desfase_s
+    )
 
 
 if __name__ == "__main__":

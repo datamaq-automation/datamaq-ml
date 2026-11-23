@@ -10,7 +10,11 @@ from src.domain.cargas.repositories import MedicionRepository
 from src.infrastructure.fastapi.dependencies import get_mediciones
 from src.infrastructure.settings.config import get_settings
 from src.infrastructure.settings.logger import logger
-from src.infrastructure.ssh.medicion_repository import SshMedicionRepository
+
+try:
+    from src.infrastructure.ssh.medicion_repository import SshMedicionRepository
+except ImportError:
+    SshMedicionRepository = ()  # type: ignore[misc, assignment]
 
 router = APIRouter(tags=["Mediciones"])
 

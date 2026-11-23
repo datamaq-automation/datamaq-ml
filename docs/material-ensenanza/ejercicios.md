@@ -16,6 +16,16 @@ Para mirar la verdad solo después de responder: `data/verdad/sintetico.csv`.
 
 ## Bloque 1 — Aprendizaje supervisado: árboles de decisión
 
+**E0. Regla del experto frente a regla inducida.** Comparar una regla deductiva manual con una regla inducida de datos (ver ↗ [reglas_deductivas_ejemplo.md](file:///home/agustin/proyectos_software/datamaq/datamaq-ml/docs/material-ensenanza/reglas_deductivas_ejemplo.md) y script ↗ [ejemplo_issue_12.py](file:///home/agustin/proyectos_software/datamaq/datamaq-ml/docs/ejemplos/ejemplo_issue_12.py)):
+
+```bash
+python docs/ejemplos/ejemplo_issue_12.py
+```
+
+1. Calculá a mano los cortes inductivos entre los ejemplos de entrenamiento 15, 40 y 90 kW y confirmá que den 27,5 y 65,0 kW.
+2. Armá la matriz de confusión 3x3 para la regla del experto y para la regla inducida sobre los seis casos de prueba. ¿Qué exactitud global tiene cada una?
+3. Si ambas tienen 5/6 (83,3 %) de exactitud, ¿por qué no son equivalentes? Explicá qué error comete cada una y cuál es más peligroso para el mantenimiento de la planta.
+
 **E1. Un árbol que explica.** Entrená un árbol con la verdad del tablero sintético:
 
 ```bash
@@ -54,6 +64,27 @@ Para mirar la verdad solo después de responder: `data/verdad/sintetico.csv`.
 1. ¿Cuál es la hipótesis más específica que cubre los positivos y no los negativos? (el límite S)
 2. ¿Cuál es la más general? (el límite G)
 3. Agreguen el ejemplo 5 (ΔP = 30, ΔQ = 33, sí). ¿Cómo cambian S y G? Verifiquen con `POST /api/v1/version-space/step`.
+
+**E4b. Algoritmo AQ frente a Espacio de Versiones y Árboles CART.**
+Con los 6 arranques sintéticos de prueba: (88, 90), (92, 90), (40, 40), (42, 40), (15, 15) y (16, 15) (donde cada tupla es `(ΔP, clase)` en kW):
+1. Calculen a mano el complejo más general (1D) para cada una de las 3 clases.
+2. ¿Por qué un nuevo arranque de 60 kW es clasificado por AQ como clase 40 kW si no había ningún dato de 60 kW en el entrenamiento?
+3. Comparen conceptualmente las reglas de AQ con las obtenidas por un árbol CART (`./run.sh supervise`) y las del espacio de versiones: comparen número de reglas, complejidad e interpretabilidad. Verifiquen con `python docs/ejemplos/ejemplo_issue_13.py`.
+
+**E4c. Programación Lógica Inductiva y Algoritmo FOIL.**
+Dados los 4 equipos industriales: A (compresor), B (bomba), C (ventilador) y D (luminaria), con los hechos de fondo observados: `despues(A, B)`, `despues(C, A)` y `despues(D, C)`:
+1. Calculen a mano la ganancia de información FOIL de la primera cláusula candidata: `dependiente(X, Y) :- despues(X, Y)`. Comprueben que arroja exactamente 3.00 bits.
+2. ¿Por qué se necesitan 3 cláusulas no recursivas para cubrir todos los pares dependientes en una cadena lineal de 4 equipos?
+3. ¿Cómo se reescribe este mismo concepto en solo 2 cláusulas si se permite recursión en la cabeza? Verifiquen con `python docs/ejemplos/ejemplo_issue_14.py`.
+
+**E4d. Regresión y pronóstico de demanda con partición temporal.**
+Dada la serie sintética de 10 días de energía diaria en kWh: `[100, 104, 99, 105, 101, 107, 102, 108, 104, 110]`:
+1. Entrenando con los primeros 7 días y evaluando sobre los últimos 3, calculen el MAE y el RMSE para:
+   - El promedio histórico de entrenamiento.
+   - La persistencia (último valor observado).
+   - La recta de tendencia lineal (mínimos cuadrados).
+2. ¿Por qué el RMSE es estrictamente mayor o igual que el MAE en todos los modelos? ¿En qué escenario operativo de planta es más relevante el RMSE que el MAE?
+3. Ejecuten `./run.sh forecast`. Expliquen por qué una partición aleatoria (o intercalada) produce un error artificialmente más bajo que la partición temporal cronológica y por qué reportar ese número falsea la capacidad predictiva del sistema.
 
 ## Bloque 3 — Medidas de rendimiento
 
@@ -98,6 +129,17 @@ Para mirar la verdad solo después de responder: `data/verdad/sintetico.csv`.
    Justifiquen con un caso concreto (un arranque aislado, una falla de medición).
 4. ¿Cuándo esperarían que k-medias y DBSCAN den el mismo resultado? ¿Cuándo no?
 
+**E7b. Dendrograma y cortes aglomerativos.** (ver práctica ↗ [practica_aglomerativo.py](file:///home/agustin/proyectos_software/datamaq/datamaq-ml/docs/material-ensenanza/practicas/practica_aglomerativo.py) y script ↗ [ejemplo_issue_17.py](file:///home/agustin/proyectos_software/datamaq/datamaq-ml/docs/ejemplos/ejemplo_issue_17.py)):
+
+```bash
+./.venv/bin/python docs/material-ensenanza/practicas/practica_aglomerativo.py --comparar-todos
+./.venv/bin/python docs/material-ensenanza/practicas/practica_aglomerativo.py --k 3 --metodo complete
+```
+
+1. Corré el script `ejemplo_issue_17.py` y observá la tabla de siete puntos: 1; 2; 3,5; 5; 9; 10; 12,5. ¿Por qué el enlace simple agrupa 1, 2, 3,5 y 5 juntos, mientras que el enlace completo separa {1, 2} de {3,5, 5}?
+2. En la práctica sobre `sintetico.csv`, compará los cuatro métodos cortando en k=3. ¿Cuál método obtiene el mayor coeficiente de silueta y por qué?
+3. En un dendrograma, ¿dónde conviene realizar el corte por distancia? Justificá utilizando el concepto de salto de altura (brecha máxima entre fusiones sucesivas).
+
 ## Bloque 5 — Selección de modelos y validación sin respuestas correctas
 
 **E8. Elegir parámetros sin la verdad.** Los parámetros de DBSCAN se estiman con reglas (ver `docs/cuaderno-alumno.md`,
@@ -108,6 +150,16 @@ secciones 4 a 6):
 2. Con la verdad, comparen el radio automático con los radios 2, 5 y 10. ¿El automático está entre los mejores?
 3. Propongan un criterio sin verdad para elegir el radio (por ejemplo, la silueta de la práctica E7). Pruébenlo con el
    tablero sintético: ¿coincide con el que mide la verdad?
+
+**E8b. Curva de sobreajuste y ajuste de hiperparámetros.** (ver ↗ [guia_ajuste_modelos.md](file:///home/agustin/proyectos_software/datamaq/datamaq-ml/docs/material-ensenanza/guia_ajuste_modelos.md) y script ↗ [ejemplo_issue_16.py](file:///home/agustin/proyectos_software/datamaq/datamaq-ml/docs/ejemplos/ejemplo_issue_16.py)):
+
+```bash
+python docs/ejemplos/ejemplo_issue_16.py
+```
+
+1. Corré el script y observá cómo evoluciona la exactitud de entrenamiento frente a la de prueba al pasar de profundidad 2 a 4 y sin límite (`None`).
+2. ¿Por qué el árbol sin límite alcanza 98,3 % en entrenamiento pero cae abruptamente a 57,5 % en prueba? ¿Qué aprendió el árbol que perjudicó su generalización?
+3. Utilizá la función de validación cruzada `evaluar_clasificador_cv` de ↗ [evaluacion_clasificadores.py](file:///home/agustin/proyectos_software/datamaq/datamaq-ml/src/infrastructure/sklearn/evaluacion_clasificadores.py). ¿Por qué la validación cruzada es más robusta que una única partición fija?
 
 ## Bloque 6 — Verificación del software de ML
 
@@ -122,3 +174,38 @@ secciones 4 a 6):
 2. Describan una prueba que detectaría que alguien cambió la potencia de un intervalo sin querer. ¿Dónde la escribirían?
 3. ¿Por qué el gauntlet revisa que el dominio no importe infraestructura? ¿Qué problema evita en un proyecto que
    cambia de base de datos o de librería de ML?
+
+**E10. Validación sin verdad de terreno: cobertura frente a residuo.** En problemas industriales reales no hay etiquetas de referencia. Guía completa en ↗ [protocolo-validacion.md](file:///home/agustin/proyectos_software/datamaq/datamaq-ml/docs/material-ensenanza/protocolo-validacion.md) y script reproducible en ↗ [ejemplo_issue_20.py](file:///home/agustin/proyectos_software/datamaq/datamaq-ml/docs/ejemplos/ejemplo_issue_20.py):
+
+```bash
+python docs/ejemplos/ejemplo_issue_20.py
+```
+
+1. Corran el script y confirmen la cobertura de 79,2 %. ¿En qué intervalos se concentra el residuo crítico mayor a 0,5 kWh?
+2. Si un algoritmo atribuye 10 kWh de más en el turno mañana y 10 kWh de menos en el turno tarde, ¿qué le pasa a la cobertura diaria total? ¿Por qué la cobertura global sola puede ser engañosa?
+3. Diseñen un vector sintético de 8 intervalos donde la cobertura sea del 95 % pero que deba ser rechazado por contener energía inventada en uno de los intervalos (residuo negativo). Verifiquen su caso con `evaluar_consistencia_dia`.
+
+**E8c. Despacho horario de cargas con Q-Learning tabular.**
+Un equipo industrial opera bajo un régimen tarifario de dos franjas cíclicas: valle (tarifa baja) y pico (tarifa alta), con gamma = 0.9:
+- En valle, arrancar genera un beneficio neto de +2.
+- En pico, arrancar genera un costo r_pico.
+- Esperar en cualquier estado genera 0.
+
+1. Calculen analíticamente el valor esperado de Bellman V(valle) para:
+   - r_pico = -5 (arrancar en valle y esperar en pico). Comprueben que da aproximadamente 10.53.
+   - r_pico = +1 (arrancar en ambos períodos). Comprueben que da aproximadamente 15.26.
+2. Ejecuten `python docs/ejemplos/ejemplo_issue_18.py`. ¿Por qué modificar la recompensa del estado pico cambia la decisión óptima que toma el agente en el estado valle?
+3. ¿Qué sucedería con la política si el factor de descuento fuera gamma = 0?
+
+**E8d. Optimización de horarios de demanda con algoritmos genéticos.**
+Dadas 4 cargas: horno (90 kW), compresor (40 kW), luz (25 kW) y bomba (15 kW), y una demanda base horaria para 4 horas: [20, 30, 50, 40] kW:
+1. Calculen a mano la demanda en cada una de las 4 horas y el pico máximo resultante para el individuo (0, 1, 1, 1). Comprueben que da exactamente 110 kW.
+2. ¿Por qué la fuerza bruta (4^4 = 256 combinaciones) es viable en este caso, pero se vuelve intratable para 20 cargas en 24 horas (24^20)?
+3. Ejecuten `python docs/ejemplos/ejemplo_issue_19.py`. ¿Por qué el algoritmo genético puede devolver una asignación horaria diferente a la de la fuerza bruta (ej. (0, 3, 2, 3)) y sin embargo ambas ser óptimas?
+
+**E11. Secuencias de análisis, contratos tipados e integración en equipo.**
+En un pipeline de desagregación energética, cuatro etapas se encadenan de forma secuencial: `Diferencias` -> `Detección` -> `Agrupamiento` -> `Resumen`.
+Dada la serie sintética de 8 minutos en kW: `[0, 0, 50, 50, 0, 0, 30, 0]` y un umbral de detección de 20 kW:
+1. Calculen a mano la salida de cada etapa, identificando los 4 eventos resultantes (minuto y delta kW) y el resumen final de cargas.
+2. ¿Por qué es crítico que el contrato de `Detección` devuelva una estructura con índice temporal (`EventoDetectadoDTO`) en lugar de únicamente la lista numérica de escalones?
+3. Ejecuten `python docs/ejemplos/ejemplo_issue_21.py`. Modifiquen la entrada de la etapa de agrupamiento para pasarle un diccionario sin tipo (`{"indice": 2, "delta": 50}`). ¿Qué excepción se dispara y cómo protege esto el trabajo colaborativo en equipo?

@@ -1,7 +1,5 @@
 # Cuaderno de trabajo — Identificar equipos a partir del consumo total
 
-> **Estado (2026-11-22).** Las actividades que mencionan `planta_2_a` y `planta_2_b` usan datos reales de una planta. Esos datos no se entregan a estudiantes hasta contar con el consentimiento escrito de la empresa. Mientras tanto, hacé las actividades con el tablero sintético (`./run.sh simulate`) y seguí con `docs/material-ensenanza/ejercicios.md`.
-
 En este cuaderno vas a descubrir **qué equipos funcionan en una fábrica** mirando solamente el consumo total de un tablero eléctrico. Vas a usar un algoritmo de **aprendizaje no supervisado**, vas a medir qué tan bien funciona y vas a ver dónde falla.
 
 > **Este cuaderno es parte del curso "Procesamiento de Aprendizaje Automático"** de https://isftn199.com.ar/cursos/procesamiento-aprendizaje-automatico  
@@ -41,8 +39,10 @@ Esto se llama **NILM** (*Non-Intrusive Load Monitoring*, monitoreo no intrusivo 
 ## 2. Puesta en marcha
 
 ```bash
-git clone https://github.com/datamaq-automation/energy-ml.git
-cd energy-ml
+git clone https://github.com/datamaq-automation/datamaq-ml.git
+cd datamaq-ml
+./run.sh install      # Sincroniza el entorno virtual .venv
+./run.sh fetch-data   # Descarga los datasets didácticos anonimizados (t1.csv y t2.csv)
 ./run.sh start
 ```
 
@@ -52,15 +52,15 @@ Vas a trabajar con tres medidores:
 
 | Medidor | Qué es |
 | :--- | :--- |
-| `planta_2_a` | Tablero real de una planta papelera (datos anonimizados) |
-| `planta_2_b` | Otro tablero de la misma planta |
+| `t1` | Trafo 1: tablero real de una planta papelera (fuerza motriz / pasta, datos anonimizados) |
+| `t2` | Trafo 2: otro tablero de la misma planta (máquina papelera continua) |
 | `sintetico` | Tablero **simulado**: sabemos exactamente qué equipos tiene. Sirve para medir errores. |
 
 ---
 
 ## 3. Actividad 1 — Mirar la señal
 
-Elegí `planta_2_a` y presioná **Identificar**. En el paso 1 está el gráfico de la potencia en el tiempo. Después presioná **Ver un día**.
+Elegí `t1` y presioná **Identificar**. En el paso 1 está el gráfico de la potencia en el tiempo. Después presioná **Ver un día**.
 
 1. **Predecí**: antes de mirar el día, ¿cuántos equipos distintos esperás ver prenderse y apagarse en un día de fábrica?
 2. En la vista de un día: ¿cuánto vale aproximadamente el consumo de base? ¿De qué tamaño son los escalones que se repiten?
@@ -119,10 +119,10 @@ A ojo, hay dos grupos: unos chicos (1 a 4) y unos grandes (88 a 91). El **métod
 
 En la página, el paso 2 muestra el **histograma de los saltos**: cuántos saltos hay de cada tamaño.
 
-1. Mirá `planta_2_a`. ¿Ves dos "montañas"? ¿Dónde está el valle entre ellas? ¿Dónde quedó la línea del umbral?
-2. Mirá `planta_2_b`. ¿Qué cambia? ¿Qué dice el aviso?
-3. **Predecí**: si en `planta_2_b` fijás el umbral en 60 kW, ¿la carga encontrada va a ser más grande o más chica que con el automático? ¿Por qué?
-4. **Corré**: `./run.sh train planta_2_b` y después `./run.sh train planta_2_b --umbral 60`.
+1. Mirá `t1`. ¿Ves dos "montañas"? ¿Dónde está el valle entre ellas? ¿Dónde quedó la línea del umbral?
+2. Mirá `t2`. ¿Qué cambia? ¿Qué dice el aviso?
+3. **Predecí**: si en `t2` fijás el umbral en 60 kW, ¿la carga encontrada va a ser más grande o más chica que con el automático? ¿Por qué?
+4. **Corré**: `./run.sh train t2` y después `./run.sh train t2 --umbral 60`.
 5. **Explicá**.
 
 ---
@@ -152,7 +152,7 @@ El sistema además pone un **piso**: el radio nunca es menor que **2 × el ruido
 
 ### Actividad 4 — Radio y mínimo
 
-1. Corré `./run.sh train planta_2_a` y buscá en la salida las líneas `Radio automático` y `Mínimo automático`. ¿Cuánto valen? ¿Cuál de los dos términos ganó en el radio?
+1. Corré `./run.sh train t1` y buscá en la salida las líneas `Radio automático` y `Mínimo automático`. ¿Cuánto valen? ¿Cuál de los dos términos ganó en el radio?
 2. **Predecí**: si achicás mucho el radio (`--radio 2`), ¿qué va a pasar con los eventos sin grupo? ¿Y con la carga de ~91 kW?
 3. **Corré** y **explicá**.
 4. El mínimo automático es "un evento por día analizado". Corré con `--desde 2026-09-15 --hasta 2026-09-22`. ¿Cuánto vale ahora el mínimo? ¿Por qué tiene sentido que cambie?
@@ -161,7 +161,7 @@ El sistema además pone un **piso**: el radio nunca es menor que **2 × el ruido
 
 ## 6. Validar sin respuestas correctas
 
-En `planta_2_a` y `planta_2_b` **nadie sabe qué equipos hay**: no hay etiquetas. ¿Cómo sabemos si el resultado es bueno? Con **sentido físico**:
+En `t1` y `t2` **nadie sabe qué equipos hay**: no hay etiquetas. ¿Cómo sabemos si el resultado es bueno? Con **sentido físico**:
 
 - **Un equipo que se prende y se apaga** tiene una cantidad **parecida** de encendidos y apagados. Si una "carga" tiene 2 encendidos y 18 apagados, es sospechosa.
 - **Una carga real es estable**: debería aparecer parecida si mirás una semana o el mes.
@@ -175,7 +175,7 @@ El sistema usa dos **reglas de decisión** que no se calculan con los datos, sin
 
 ### Actividad 5 — Reglas de decisión
 
-1. Corré `./run.sh train planta_2_a --min-eventos 10`. Aparece una carga de ~222 kW. ¿Cuántos encendidos y apagados tiene? ¿Qué dice el sistema de ella?
+1. Corré `./run.sh train t1 --min-eventos 10`. Aparece una carga de ~222 kW. ¿Cuántos encendidos y apagados tiene? ¿Qué dice el sistema de ella?
 2. Proponé **dos explicaciones físicas** de por qué una carga tendría muchos más apagados que encendidos. ¿Cómo las verificarías mirando el CSV?
 3. **Predecí**: con `--balance-minimo 0.95`, ¿la carga de ~91 kW sigue siendo "confiable"? Calculá su proporción (ciclos / el mayor de encendidos y apagados) antes de correr.
 4. ¿Qué valor de balance mínimo elegirías si analizaras **un solo día**? Justificá.
@@ -225,7 +225,7 @@ El problema de la actividad 7 no es solo el umbral: DBSCAN une grupos cuando hay
 1. **Predecí**: si achicás el radio, ¿los grupos se van a separar o se van a unir más?
 2. **Corré** `./run.sh evaluate --umbral 30 --radio 5`. ¿Apareció el equipo B?
 3. Buscá una combinación de `--umbral` y `--radio` que encuentre **los tres** equipos. Anotá todas las que probaste en una tabla con la sensibilidad de cada equipo y la precisión.
-4. **Pensá**: para encontrar esa combinación usaste `./run.sh evaluate`, que compara con la **verdad**. En `planta_2_a` no hay verdad. ¿Podrías haber hecho lo mismo ahí? ¿Qué te haría falta?
+4. **Pensá**: para encontrar esa combinación usaste `./run.sh evaluate`, que compara con la **verdad**. En `t1` no hay verdad. ¿Podrías haber hecho lo mismo ahí? ¿Qué te haría falta?
 5. **Conclusión**: escribí en tres líneas cuál es el límite de este enfoque.
 
 ### Actividad 9 — Tu propio tablero
