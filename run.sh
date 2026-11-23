@@ -154,6 +154,15 @@ supervise · entrena un clasificador con la verdad de un medidor simulado (super
   Ejemplo:   ./run.sh supervise
 TXT
             ;;
+        forecast)
+            cat <<'TXT'
+forecast · pronostica demanda y evalúa regresión con partición temporal
+  Parte de:  serie de energía sintética o archivo CSV de telemetría
+  Hace:      evalúa promedio, último valor, tendencia y árbol CART con MAE y RMSE
+  Ejercicio: E4d (regresión y partición temporal honesta)
+  Ejemplo:   ./run.sh forecast
+TXT
+            ;;
         evaluate)
             cat <<'TXT'
 evaluate · compara lo identificado con la verdad conocida
@@ -325,6 +334,15 @@ case "$COMMAND" in
         fi
         echo "🎓 Entrenando un clasificador con la verdad de un medidor simulado..."
         exec "$PYTHON_BIN" -m src.infrastructure.cli.supervisar_cargas "${ARGS[@]}"
+        ;;
+    forecast)
+        ensure_venv
+        ARGS=("${@:2}")
+        if resolver_modo "${ARGS[0]:-}"; then
+            ARGS=("${ARGS[@]:1}")
+        fi
+        echo "📈 Pronosticando demanda eléctrica con partición temporal..."
+        exec "$PYTHON_BIN" -m src.infrastructure.cli.pronosticar_demanda "${ARGS[@]}"
         ;;
     disaggregate)
         ensure_venv

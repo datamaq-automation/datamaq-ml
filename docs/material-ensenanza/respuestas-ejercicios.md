@@ -76,6 +76,17 @@ Dados los ejemplos:
   - Paso inductivo recursivo: `dependiente(X, Y) :- despues(X, Z), dependiente(Z, Y).`
   Esta versión cubre cadenas de cualquier longitud arbitraria con número constante de cláusulas.
 
+### E4d. Regresión y pronóstico de demanda con partición temporal
+- **1. Métricas de evaluación temporal (prueba: [108, 104, 110]):**
+  - **Promedio Histórico:** Predicción constante de 102.57 kWh. $\text{MAE} = 4.76\text{ kWh}$, $\text{RMSE} = 5.38\text{ kWh}$.
+  - **Último Valor (Persistencia):** Predicción constante de 102.00 kWh. $\text{MAE} = 5.33\text{ kWh}$, $\text{RMSE} = 5.89\text{ kWh}$.
+  - **Tendencia Lineal (OLS):** Predicciones [104.57, 105.07, 105.57]. $\text{MAE} = 2.98\text{ kWh}$, $\text{RMSE} = 3.29\text{ kWh}$.
+  - **Árbol de Regresión (CART):** Predicción de 103.75 kWh. $\text{MAE} = 3.58\text{ kWh}$, $\text{RMSE} = 4.37\text{ kWh}$.
+- **2. Desigualdad y aplicabilidad de RMSE:**
+  Por la desigualdad cuadrática de medias / Jensen, la raíz de la media de los cuadrados siempre es mayor o igual a la media de los valores absolutos ($\text{RMSE} \ge \text{MAE}$). El RMSE penaliza cuadráticamente los errores atípicos severos; en contratación de potencia con la distribuidora eléctrica, un error de pico de 50 kW dispara penalidades económicas y sobrecalentamiento de barras que no se compensan con múltiples errores pequeños de 2 kW.
+- **3. Fuga temporal (Data Leakage) por partición aleatoria:**
+  Al barajar los datos al azar, el conjunto de entrenamiento incluye observaciones de días posteriores a los de prueba. En presencia de tendencias o ciclos semanales, el algoritmo deja de hacer extrapolación temporal hacia el futuro desconocido y pasa a hacer **interpolación** entre puntos pasados y futuros conocidos. En `./run.sh forecast`, la partición aleatoria reporta un error significativamente menor (ej. 4.00 kWh frente a 6.33 kWh temporal), inflando falsamente el rendimiento percibido del algoritmo antes de su puesta en producción.
+
 ---
 
 ## Bloque 3 — Medidas de Rendimiento
