@@ -1,11 +1,12 @@
 """src/infrastructure/cli/exportar_repo_educativo.py — Extracción determinista de repositorio educativo sanitizado."""
 
 import argparse
+import json
 import os
 import re
 import shutil
 import sys
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 
 from src.infrastructure.settings.logger import logger
@@ -48,12 +49,29 @@ RUTAS_EXCLUIDAS_PREFIJO: tuple[str, ...] = (
     "tests/unit/test_mediciones_factory.py",
     "data/verdad",
     "data/prod-cache",
+    "config/clientes_privados.json",
 )
 
-PATRONES_PROHIBIDOS: tuple[re.Pattern[str], ...] = (
-    re.compile(r"\bUPP\b", re.IGNORECASE),
-    re.compile(r"\b100\.\d{1,3}\.\d{1,3}\.\d{1,3}\b"),  # IPs de Tailscale
-)
+# Nombres privados a tapar: se leen de un archivo local no versionado (ver .gitignore). El ejemplo
+# versionado, con nombres ficticios, está en config/clientes_privados.example.json.
+RUTA_CLIENTES_POR_DEFECTO = Path("config/clientes_privados.json")
+
+PATRON_IP_TAILSCALE = re.compile(r"\b100\.\d{1,3}\.\d{1,3}\.\d{1,3}\b")
+
+
+def cargar_reemplazos(ruta: Path) -> dict[str, str]:
+    """Lee el mapa {nombre privado: nombre genérico} del archivo de configuración local."""
+    datos = json.loads(ruta.read_text(encoding="utf-8"))
+    reemplazos = datos.get("reemplazos") if isinstance(datos, dict) else None
+    if not isinstance(reemplazos, dict) or not all(
+        isinstance(k, str) and k.strip() and isinstance(v, str) for k, v in reemplazos.items()
+    ):
+        raise ValueError(f'{ruta}: se esperaba {{"reemplazos": {{"nombre": "genérico"}}}}')
+    return dict(reemplazos)
+
+
+def _patron_nombre(nombre: str) -> re.Pattern[str]:
+    return re.compile(rf"\b{re.escape(nombre)}\b", re.IGNORECASE)
 
 
 def _es_directorio_excluido(partes: set[str]) -> bool:
@@ -85,26 +103,31 @@ def es_archivo_permitido(ruta_rel: Path) -> bool:
     return True
 
 
-def escanear_patrones_prohibidos(contenido: str) -> list[str]:
+def escanear_patrones_prohibidos(contenido: str, reemplazos: Mapping[str, str]) -> list[str]:
     """Retorna las coincidencias de patrones prohibidos (nombres de cliente, IPs privadas)."""
     hallazgos: list[str] = []
-    for patron in PATRONES_PROHIBIDOS:
+    patrones = [_patron_nombre(nombre) for nombre in reemplazos] + [PATRON_IP_TAILSCALE]
+    for patron in patrones:
         coincidencias = patron.findall(contenido)
         if coincidencias:
             hallazgos.extend(coincidencias)
     return hallazgos
 
 
-def sanitizar_texto(texto: str) -> str:
+def sanitizar_texto(texto: str, reemplazos: Mapping[str, str]) -> str:
     """Reemplaza identificadores privados conocidos por nombres genéricos de aula."""
-    reemplazado = re.sub(r"\bUPP\b", "Planta Piloto", texto)
-    reemplazado = re.sub(r"\bTrafo arriba\b", "Trafo 1", reemplazado)
-    reemplazado = re.sub(r"\bTrafo abajo\b", "Trafo 2", reemplazado)
+    reemplazado = texto
+    # Los nombres más largos primero, para que uno contenido en otro no lo corte a medias.
+    for nombre in sorted(reemplazos, key=len, reverse=True):
+        reemplazado = _patron_nombre(nombre).sub(reemplazos[nombre], reemplazado)
     return reemplazado
 
 
 def exportar_arbol(
-    origen: Path, destino: Path, sobreescribir: bool = False
+    origen: Path,
+    destino: Path,
+    reemplazos: Mapping[str, str],
+    sobreescribir: bool = False,
 ) -> tuple[int, list[str]]:
     """Copia los archivos permitidos y sanitiza textos hacia el repositorio educativo."""
     if destino.exists():
@@ -142,8 +165,8 @@ def exportar_arbol(
             if es_texto:
                 try:
                     contenido = origen_archivo.read_text(encoding="utf-8")
-                    contenido_limpio = sanitizar_texto(contenido)
-                    restos = escanear_patrones_prohibidos(contenido_limpio)
+                    contenido_limpio = sanitizar_texto(contenido, reemplazos)
+                    restos = escanear_patrones_prohibidos(contenido_limpio, reemplazos)
                     if restos:
                         advertencias_privacidad.append(f"{rel}: patrones encontrados {set(restos)}")
                     destino_archivo.write_text(contenido_limpio, encoding="utf-8")
@@ -178,6 +201,15 @@ def _construir_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Sobreescribe el directorio destino si ya existe",
     )
+    parser.add_argument(
+        "--clientes",
+        type=Path,
+        default=None,
+        help=(
+            "Archivo JSON local, no versionado, con los nombres privados a tapar "
+            f"(por defecto: <origen>/{RUTA_CLIENTES_POR_DEFECTO})"
+        ),
+    )
     return parser
 
 
@@ -192,9 +224,25 @@ def main(args: Sequence[str] | None = None) -> int:
         logger.error("El directorio de origen no existe: %s", origen)
         return CODIGO_ERROR_PARAMETROS
 
+    ruta_clientes = (parsed.clientes or origen / RUTA_CLIENTES_POR_DEFECTO).resolve()
+    if not ruta_clientes.is_file():
+        # Sin la lista no se puede tapar nada: exportar igual podría filtrar nombres de clientes.
+        logger.error(
+            "No existe el archivo de nombres privados: %s (copiar config/clientes_privados.example.json)",
+            ruta_clientes,
+        )
+        return CODIGO_ERROR_PARAMETROS
+    try:
+        reemplazos = cargar_reemplazos(ruta_clientes)
+    except (ValueError, json.JSONDecodeError) as exc:
+        logger.error("Archivo de nombres privados inválido: %s", exc)
+        return CODIGO_ERROR_PARAMETROS
+
     logger.info("Iniciando exportación educativa desde %s hacia %s", origen, destino)
     try:
-        copiados, advertencias = exportar_arbol(origen, destino, sobreescribir=parsed.sobreescribir)
+        copiados, advertencias = exportar_arbol(
+            origen, destino, reemplazos, sobreescribir=parsed.sobreescribir
+        )
         logger.info("Exportación completada con éxito. Archivos copiados: %d", copiados)
         if advertencias:
             for adv in advertencias:

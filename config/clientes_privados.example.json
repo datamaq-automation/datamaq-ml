@@ -1,0 +1,8 @@
+{
+  "_comentario": "Ejemplo con nombres ficticios. Copiar a config/clientes_privados.json (no versionado) y completar con los nombres reales a tapar en la exportación educativa.",
+  "reemplazos": {
+    "Metalúrgica Ejemplo": "Planta Piloto",
+    "Trafo Norte": "Trafo 1",
+    "Trafo Sur": "Trafo 2"
+  }
+}

@@ -50,3 +50,6 @@ data/verdad/*
 
 # Logs de ejecución
 *.log
+
+# Nombres de clientes que tapa el exportador educativo (privado; el ejemplo sí se versiona)
+config/clientes_privados.json

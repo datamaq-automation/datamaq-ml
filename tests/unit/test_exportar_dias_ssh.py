@@ -24,7 +24,7 @@ from src.infrastructure.ssh.medicion_repository import (
     parsear_filas_dia,
 )
 
-DEVICE = "a01b1642-ed29-4c3e-a793-f57de09504f8"
+DEVICE = "11111111-2222-4333-8444-555555555555"
 ESCRITURAS = ("INSERT", "UPDATE", "DELETE", "DROP", "ALTER", "CREATE", "REPLACE", "TRUNCATE")
 
 

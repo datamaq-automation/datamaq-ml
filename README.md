@@ -338,3 +338,21 @@ Implementado bajo **Clean Architecture** estricta:
 
 Documentación de producción (modo SSH, VPS, systemd): `docs/PRODUCCION.md`.
 Especificación del pipeline NILM: `specs/identificacion-cargas-ml-nilm.md`.
+
+## Licencia
+
+Copyright (C) 2026 DataMaq.
+
+Este programa es software libre: se puede redistribuir y modificar bajo los términos de la
+**GNU Affero General Public License**, versión 3 o (a elección de quien lo use) cualquier versión
+posterior, publicada por la Free Software Foundation (`AGPL-3.0-or-later`). El texto completo está en
+[`LICENSE`](LICENSE).
+
+Se distribuye con la esperanza de que sea útil, pero **sin ninguna garantía**, ni siquiera la garantía
+implícita de comerciabilidad o de aptitud para un propósito particular.
+
+La AGPL también alcanza el uso por red: quien ofrezca a otros este programa, modificado o no, como un
+servicio accesible por red tiene que ofrecerles el código fuente de la versión que corre (sección 13).
+
+- **Marca:** el nombre y el logo de DataMaq no están licenciados. Ver [`TRADEMARKS.md`](TRADEMARKS.md).
+- **Aportes:** se aceptan con DCO (`Signed-off-by` en cada commit). Ver [`CONTRIBUTING.md`](CONTRIBUTING.md).
