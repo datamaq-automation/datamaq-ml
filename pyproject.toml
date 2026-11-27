@@ -3,6 +3,8 @@ name = "datamaq-ml"
 version = "1.0.0"
 description = "Motor de Machine Learning para Identificación de Cargas Eléctricas (NILM Industrial) — DataMaq"
 readme = "README.md"
+license = "AGPL-3.0-or-later"
+license-files = ["LICENSE"]
 requires-python = ">=3.10"
 dependencies = [
     "fastapi>=0.115.0",
